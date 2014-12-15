@@ -1,0 +1,350 @@
+<?php
+/**
+ * @file
+ * alm_services.test
+ *
+ * Test suites for the ALM Server service access module.
+ * @package alm_services
+ */
+
+/**
+ * Unit test suite for the alm_services module.
+ *
+ * @package alm_services
+ */
+class AlmServicesUnitTestCase extends DrupalUnitTestCase {
+
+  /**
+   * Return information related to the test suite.
+   *
+   * @return array
+   *   Information about test
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('ALM Services module unit tests'),
+      'description' => t('Executes test suite for ALM Server service access module'),
+      'group' => t('Services'),
+    );
+  }
+
+  /**
+   * Enable module.
+   */
+  public function setUp() {
+    parent::setUp('alm_services');
+  }
+
+  /**
+   * Check for the DOI sanitisation functions.
+   */
+  public function testDoiSanitisation() {
+    $doi = 'i.org/10.755';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertFalse($clean_doi, t('The input string is not a DOI so should get empty return.'));
+
+    $doi = '10.vooiw2/408fncsodfu8';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertFalse($clean_doi, t('The input string is not a DOI so should get empty return.'));
+
+    $doi = 'http://dx.doi.org/10.7554/jnl.01086';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($clean_doi, '10.7554/jnl.01086', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+
+    $doi = 'http://dx.doi.org/10.7554/jnl.01086.003';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($clean_doi, '10.7554/jnl.01086.003', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+
+    $doi = 'https://dx.doi.org/10.7554/jnl.01086.003';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($clean_doi, '10.7554/jnl.01086.003', t('"https://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+
+    $doi = '10.7554/jnl.01086';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($doi, $clean_doi, t('DOI not prefixed by http://dx.doi.org or doi: should be the same after sanitisation.'));
+
+    $doi = '10.734897/298375028302129375620';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($doi, $clean_doi, t('DOI not prefixed by http://dx.doi.org or doi: should be the same after sanitisation.'));
+
+    $doi = '10.78/s.kdubhvakdbfrvaieoituvhebjubfh';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($doi, $clean_doi, t('DOI not prefixed by http://dx.doi.org or doi: should be the same after sanitisation.'));
+
+    $doi = 'doi:10.7554/jnl.01086-4';
+    $clean_doi = alm_services_sanitise_doi($doi);
+    $this->assertEqual($clean_doi, '10.7554/jnl.01086-4', t('"doi:" should be removed from the beginning of the DOI string.'));
+
+    $doi = '10.7554/jnl.01087';
+    $clean_dois = alm_services_sanitise_doi_cache($doi);
+    $this->assertEqual(count($clean_dois), 10, 'DOI cached count should be 10.');
+    $this->assertNotNull($clean_dois['http://dx.doi.org/10.7554/jnl.01086'], t('Result for http://dx.doi.org/10.7554/jnl.01086 is still in cache.'));
+  }
+
+  /**
+   * Check for the service url function.
+   */
+  public function testServiceUrl() {
+    $service_server = variable_get('alm_services_url', ALM_SERVICES_DEFAULT_DOMAIN);
+
+    $service_url = alm_services_service_url();
+    $this->assertTrue(strpos($service_url, $service_server) === 0, 'Service url should be prefixed by ' . $service_server . '.');
+    $this->assertEqual($service_url, $service_server . '/api/v5/articles', t('Default service url should be /api/v5/articles.'));
+
+    $service_url = alm_services_service_url(4);
+    $this->assertEqual($service_url, $service_server . '/api/v4/articles', t('Service url should be amended to reflect the API version requested.'));
+
+    $service_url = alm_services_service_url(99);
+    $this->assertEqual($service_url, $service_server . '/api/v5/articles', t('When a valid API version is not provided /api/v5/articles should be returned.'));
+  }
+
+  /**
+   * Check for the make url function.
+   */
+  public function testMakeFetchUrl() {
+    $service_server = variable_get('alm_services_url', ALM_SERVICES_DEFAULT_DOMAIN);
+    $key = alm_services_service_key();
+    $doi = '10.7554/jnl.01087';
+    $expected_doi = '10.7554/jnl.01087';
+
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
+    $fetch_url = alm_services_make_fetch_url($doi);
+    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url'));
+
+
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => FALSE));
+    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+
+
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertEqual($fetch_url, $expected_url, t('Detail query test: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+
+
+    $doi = '1054';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertNull($fetch_url, t('Not-a-DOI test: Got ' . $fetch_url . ', rather than fail'));
+
+
+    $doi = '10.7554/jnl.01087';
+    $expected_doi = '10.7554/jnl.01087';
+    $service_server = 'http://alm.plos.org';
+    $options = array(
+      'include_detail' => TRUE,
+      'service_url' => $service_server . '/api/v5/articles',
+    );
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
+    $fetch_url = alm_services_make_fetch_url($doi, $options);
+    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+
+
+    $service_server = 'http://alm.plos.org';
+    $options = array(
+      'include_detail' => TRUE,
+      'service_url' => $service_server . '/api/v5/articles',
+    );
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
+    $fetch_url = alm_services_make_fetch_url($doi, $options);
+    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+
+    $service_server = 'plos.org';
+    $options = array(
+      'include_detail' => TRUE,
+      'service_url' => $service_server . '/api/v5/articles',
+    );
+    $fetch_url = alm_services_make_fetch_url($doi, $options);
+    $this->assertNull($fetch_url, t('Set bad URL: Got ' . $fetch_url . ', rather than expected url'));
+  }
+
+  public function testMakeFetchUrlArray() {
+    $service_server = variable_get('alm_services_url', ALM_SERVICES_DEFAULT_DOMAIN);
+    $key = alm_services_service_key();
+    $doi = array(
+      '10.7554/jnl.01087',
+      '1054',
+      'doi:10.361/sbifyus',
+      NULL,
+      'https://dx.doi.org/10.7554/jnl.01086.003',
+    );
+
+    $expected_dois = '10.7554/jnl.01087%2C10.361/sbifyus%2C10.7554/jnl.01086.003';
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_dois . '&info=summary';
+    $fetch_url = alm_services_make_fetch_url($doi);
+    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url'));
+
+    $fetch_url = alm_services_make_fetch_url(array());
+    $this->assertNull($fetch_url, t('Set bad URL array: Got ' . $fetch_url . ', rather than expected null'));
+
+
+  }
+}
+
+/**
+ * Functional test suite for the alm_services module.
+ *
+ * @package alm_services
+ */
+class AlmServicesWebTestCase extends DrupalWebTestCase {
+
+  /**
+   * Representation of administrative user.
+   * @access protected
+   * @var object
+   */
+  protected $adminUser;
+
+  /**
+   * Representation of web user.
+   * @access protected
+   * @var object
+   */
+  protected $webUser;
+
+  /**
+   * Return information related to the test suite.
+   *
+   * @return array
+   *   Information about test
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('alm_services web tests'),
+      'description' => t('Executes test suite for ALM Server service access module'),
+      'group' => t('Services'),
+    );
+  }
+
+  /**
+   * Enable module and create user with specific permissions.
+   */
+  public function setUp() {
+    parent::setUp('alm_services');
+
+    $admin_permissions = array(
+      'access content',
+      'administer nodes',
+      'administer alm services',
+      'create alm records',
+      'delete alm records',
+      'make doi requests',
+    );
+
+    $web_permissions = array(
+      'access content',
+      'make doi requests',
+    );
+
+    $this->adminUser = $this->drupalCreateUser($admin_permissions);
+    $this->webUser = $this->drupalCreateUser($web_permissions);
+
+    variable_set('alm_services_create_doi_enabled', TRUE);
+    variable_set('alm_services_delete_doi_enabled', TRUE);
+    variable_set('alm_services_adminuser', 'tester');
+    variable_set('alm_services_adminpass', 'pass');
+    variable_set('alm_services_url', 'http://alm.example.org');
+    variable_set('alm_services_apikey', 'E4DDC0F3B36829BB30CFD2D104C4819865BC5C29487B');
+  }
+
+  /**
+   * Check for the make url function.
+   */
+  public function testMakeFetchUrl() {
+    $key = alm_services_service_key();
+
+    $doi = '1054';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertNull($fetch_url, t('Not-a-DOI test: Got ' . $fetch_url . ', rather than fail'));
+
+    $doi = '10.7554/jnl.01087';
+    $service_server = 'http://alm.plos.org';
+    variable_set('alm_services_url', $service_server);
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $doi . '&info=detail';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url'));
+
+    $service_server = 'http://alm.plos.org';
+    variable_set('alm_services_url', $service_server);
+    $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $doi . '&info=detail';
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url'));
+
+    $service_server = 'plos.org';
+    variable_set('alm_services_url', $service_server);
+    $fetch_url = alm_services_make_fetch_url($doi, array('include_detail' => TRUE));
+    $this->assertNull($fetch_url, t('Set bad URL: Got ' . $fetch_url . ', rather than expected url'));
+  }
+
+  /**
+   * Check for DOI GET api method.
+   */
+  public function testFetchDoi() {
+    $service_url = alm_services_service_url();
+    $service_url_structure = $service_url . '?api_key=[API_KEY]&type=doi&ids=[DOI]&info=[INCLUDE_HISTORY]';
+
+    $article_doi = '10.7554/jnl.01086';
+    $article_title = 'Essential yet limited role for CCR2+ inflammatory monocytes during Mycobacterium tuberculosis-specific T cell priming';
+    $article_date = strtotime('2013-11-12');
+    $api_key = alm_services_service_key();
+    $fetch_url = alm_services_make_fetch_url($article_doi);
+    $fetch_url_parsed = drupal_parse_url($fetch_url);
+    $fetch_url_check = $service_url . '?api_key=' . $api_key . '&type=doi&ids=' . str_replace('%2F', '/', rawurlencode($article_doi)) . '&info=summary';
+    $this->assertTrue(strpos($fetch_url, $service_url) === 0, t('Fetch URL should be prefixed by service URL: @service_url', array('@service_url' => $service_url)));
+    $this->assertEqual($fetch_url, $fetch_url_check, t('Fetch URL should have the structure: @service_url', array('@service_url' => $service_url_structure)));
+
+    $record = alm_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
+    $this->assertNotNull($record, t('Expect a response from the ALM server.'));
+    $this->assertEqual($record->code, 200, t('Status code should be 200 from the ALM server.'));
+
+    $record_json = json_decode($record->data, TRUE);
+    $record_doi = $record_json[0];
+    $this->assertEqual($record_doi['doi'], $article_doi, 'DOI returned from query should be same as requested.');
+
+    $this->assertEqual($record_doi['title'], $article_title, t('Title returned should be same as on Drupal site.'));
+
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the ALM server should be the same as that stored locally.'));
+
+    $this->assertTrue(($record_doi['citations'] >= 1), t('Expect to see at least 1 citation for this DOI.'));
+  }
+
+  /**
+   * Check for DOI POST/PUT/DELETE api method.
+   */
+  public function testPostDoi() {
+    $this->drupalLogin($this->adminUser);
+    // This should be an unused DOI.
+    $article_doi = '10.7554/jnl.99004';
+    $article_date = strtotime('2013-11-15');
+    $article_title = 'Test Title';
+    alm_services_delete_doi($article_doi, TRUE);
+    $response = alm_services_add_doi($article_doi, $article_date, $article_title);
+
+    $this->assertNotNull($response, t('Expect a response from the ALM server.'));
+    $this->assertEqual($response->code, 201, t('Response from server should be 201 for DOI creation.'));
+
+    $record = alm_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
+    $this->assertNotNull($record, t('Expect a response from the ALM server.'));
+    $this->assertEqual($record->code, 200, t('Response from server should be 200 for DOI lookup.'));
+
+    $record_json = json_decode($record->data, TRUE);
+    $record_doi = $record_json[0];
+    $this->assertEqual($record_doi['title'], $article_title, t('Title returned should be same as on submitted on DOI creation.'));
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the ALM server should be the same as that submitted on DOI creation.'));
+
+    $article_date_new = strtotime('2013-11-17');
+    $article_title_new = 'Test Title new';
+    $response = alm_services_add_doi($article_doi, $article_date_new, $article_title_new, TRUE);
+    $this->assertNotNull($response, t('Expect a response from the ALM server.'));
+    $this->assertEqual($response->code, 200, t('Response from server should be 200 for DOI update.'));
+
+    $record = alm_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
+
+    $record_json = json_decode($record->data, TRUE);
+    $record_doi = $record_json[0];
+    $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned should be same as on submitted on DOI update.'));
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date_new), t('Publication date on the ALM server should be the same as that submitted on DOI update.'));
+
+    // Cleanup of unused DOI.
+    alm_services_delete_doi($article_doi);
+  }
+}

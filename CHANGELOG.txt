@@ -1,0 +1,13 @@
+ALM Services 1.0 Sandbox
+========================
+
+Initial Features
+ - Admin interface to define URLs, keys and access.
+ - Checking and verification of DOI format.
+ - Support for fetching information for just one or an array of DOIs.
+ - Can disable & enable article changes independently of user role.
+ - Built-in sanitisation of the DOI identifier with automatic removal of doi: and http: prefixes.
+ - Simpletest test suite.
+
+Bug fixes
+ -
