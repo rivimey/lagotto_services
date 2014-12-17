@@ -1,0 +1,7 @@
+name = Lagotto Server service access
+description = This module enables access to the Lagotto service
+core = 7.x
+version = 7.x-1.0
+package = Services
+
+files[] = lagotto_services.test

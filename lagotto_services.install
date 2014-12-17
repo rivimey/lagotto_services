@@ -1,0 +1,17 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the lagotto_services module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function lagotto_services_uninstall() {
+  db_delete('variable')->condition('name', 'lagotto_services_create_doi_enabled', '=')->execute();
+  db_delete('variable')->condition('name', 'lagotto_services_delete_doi_enabled', '=')->execute();
+  db_delete('variable')->condition('name', 'lagotto_services_url', '=')->execute();
+  db_delete('variable')->condition('name', 'lagotto_services_apikey', '=')->execute();
+  db_delete('variable')->condition('name', 'lagotto_services_adminuser', '=')->execute();
+  db_delete('variable')->condition('name', 'lagotto_services_adminpass', '=')->execute();
+}
