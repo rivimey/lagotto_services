@@ -1,5 +1,5 @@
-ALM Services 1.0 Sandbox
-========================
+Lagotto Services 1.0 Sandbox
+============================
 
 Initial Features
  - Admin interface to define URLs, keys and access.

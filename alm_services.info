@@ -1,7 +1,0 @@
-name = ALM Server service access
-description = This module enables access to the ALM server database
-core = 7.x
-version = 7.x-1.0
-package = Services
-
-files[] = alm_services.test

@@ -29,8 +29,9 @@ INSTALLATION
 CONFIGURATION
 ------------------------
 
-The module's administration page is at admin/config/services/alm_services with
-additional role-based access permissions on the admin/people/permissions page.
+The module's administration page is at admin/config/services/lagotto_services
+with additional role-based access permissions on the admin/people/permissions
+page.
 
 The module requires an external server running the Lagotto software. Provide
 the URL to this server on the configuration form.
@@ -42,12 +43,12 @@ USAGE
 There are no out-of-the-box visible elements provided in this module. Software
 must call one of the php API functions, of which the main ones are:
 
-  alm_services_add_doi *
-  alm_services_delete_doi *
-  alm_services_fetch_doi
-  alm_services_service_host
-  alm_services_service_key
-  alm_services_service_url
+  lagotto_services_add_doi *
+  lagotto_services_delete_doi *
+  lagotto_services_fetch_doi
+  lagotto_services_service_host
+  lagotto_services_service_key
+  lagotto_services_service_url
 
 Refer to the function comments for additional information on these calls. The
 two calls marked '*' have additional execution protection accessed using the
