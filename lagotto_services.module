@@ -98,81 +98,10 @@ function lagotto_services_menu() {
 }
 
 /**
- *  Implements hook_requirements().
- */
-function lagotto_services_requirements($phase) {
-  $requirements = array();
-  switch ($phase) {
-    case 'runtime':
-      $t = get_t();
-
-      $server = lagotto_services_service_host();
-      $creds = lagotto_services_service_creds();
-      $create_doi_config = variable_get('lagotto_services_create_doi_enabled', FALSE);
-      $delete_doi_config = variable_get('lagotto_services_delete_doi_enabled', FALSE);
-      $want_write_access = ($create_doi_config || $delete_doi_config);
-      $have_admin_creds = (!empty($creds['user']) && !empty($creds['pass']));
-
-      $lgt_requirements = array(
-        'title' => $t('Lagotto Services module'),
-      );
-
-      $config_ok = TRUE;
-
-      // Some message snippets to construct the final message from.
-      $description = array();
-
-      // To use the module you need to supply a valid server.
-      if (empty($server)) {
-        $description[] = $t('The Lagotto server address must be set.');
-        $config_ok = FALSE;
-      }
-      else {
-        $query = array(
-          'absolute' => TRUE,
-          'method' => 'HEAD',
-        );
-        $reply = drupal_http_request($server, $query);
-        if ($reply->code != 200) {
-          $description[] = $t('The server at the configured URL is not responding correctly.');
-          $config_ok = FALSE;
-        }
-      }
-
-      // To enable create or delete DOI, you need a configured admin account.
-      if ($want_write_access ^ $have_admin_creds) {
-        $description[] = $t('Administration account details must be set for create or delete to work.');
-        $config_ok = FALSE;
-      }
-
-      if ($config_ok) {
-        $lgt_requirements['description'] = '';
-        $lgt_requirements['severity'] = REQUIREMENT_OK;
-        $lgt_requirements['value'] = $t('Configured');
-      }
-      else {
-        array_unshift($description,
-          $t('The Lagotto Services module has not been correctly configured. '));
-        $description[] =
-          $t('Please modify the settings on the <a href="@url">lagotto_services settings page</a>.',
-          array('@url' => url('admin/config/services/lagotto_services')));
-
-        $lgt_requirements['description'] = implode(' ', $description);
-        $lgt_requirements['severity'] = REQUIREMENT_ERROR;
-        $lgt_requirements['value'] = $t('Not configured');
-      }
-      $requirements['lagotto_services'] = $lgt_requirements;
-      break;
-  }
-
-  return $requirements;
-}
-
-/**
  * API: Return True if current session has permission to add DOIs to server.
  *
  * @return string
- *   the server base URL as configured by the user, or the default.
+ *   The server base URL as configured by the user, or the default.
  *
  * @see lagotto_services_add_doi
  * @see lagotto_services_remove_doi_enabled
@@ -184,10 +113,10 @@ function lagotto_services_add_doi_enabled() {
 }
 
 /**
- * API: Return True if current session has permission to remove DOIs from server.
+ * API: Return True if current session has permission to remove DOI from server.
  *
  * @return string
- *   the server base URL as configured by the user, or the default.
+ *   The server base URL as configured by the user, or the default.
  *
  * @see lagotto_services_remove_doi
  * @see lagotto_services_add_doi_enabled
@@ -202,7 +131,7 @@ function lagotto_services_remove_doi_enabled() {
  * API: Return the configured ALM service host (base URL).
  *
  * @return string
- *   the server base URL as configured by the user, or the default.
+ *   The server base URL as configured by the user, or the default.
  *
  * @see lagotto_services_service_key
  * @see lagotto_services_service_creds
@@ -237,10 +166,10 @@ function lagotto_services_service_creds() {
  * API: Return the configured ALM service URL.
  *
  * @param int $version
- *   API version number
+ *   API version number.
  *
  * @return string
- *   the server URL as configured by the user, or the default.
+ *   The server URL as configured by the user, or the default.
  *
  * @see lagotto_services_service_host
  */
@@ -264,7 +193,7 @@ function lagotto_services_service_url($version = LAGOTTO_SERVICES_SERVICE_API_FE
  * API: Return the configured ALM service API key.
  *
  * @return string
- *   the server key as configured by the user, or the default.
+ *   The server key as configured by the user, or the default.
  *
  * @see lagotto_services_service_host
  * @see lagotto_services_service_url
@@ -286,8 +215,9 @@ function lagotto_services_service_key() {
  *
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key
- *   'service_url' - override the url from lagotto_services_service_url. This should be the full api link, not just the base.
+ *   'service_key' - override the key from lagotto_services_service_key.
+ *   'service_url' - override the url from lagotto_services_service_url.
+ *                   This should be the full api link, not just the base.
  *   'api_version' - override the api version number (e.g. '5'). Use with care.
  *
  * @return string
@@ -360,10 +290,10 @@ function lagotto_services_make_fetch_url($doi_list, $options = array()) {
  * minimal form if possible or NULL.
  *
  * @param string $doi
- *   the DOI that is being checked
+ *   The DOI that is being checked.
  *
  * @return bool|mixed
- *   a trimmed $doi if it validates OK, FALSE if not.
+ *   A trimmed $doi if it validates OK, FALSE if not.
  */
 function lagotto_services_sanitise_doi($doi) {
   $doi_cache = lagotto_services_sanitise_doi_cache($doi);
@@ -375,11 +305,11 @@ function lagotto_services_sanitise_doi($doi) {
  * Build a cache of DOI requests.
  *
  * @param string $doi
- *   the DOI that is being checked
+ *   The DOI that is being checked.
  *
  * @return mixed
- *   an array of DOIs - the request as the key and the sanitised DOI as the
- * value.
+ *   An array of DOIs - the request as the key and the sanitised DOI as the
+ *   value.
  */
 function lagotto_services_sanitise_doi_cache($doi) {
   $doi_cache = &drupal_static(__FUNCTION__, array());
@@ -410,23 +340,23 @@ function lagotto_services_sanitise_doi_cache($doi) {
  * provided.
  *
  * @param string $doi
- *   The DOI of the article
+ *   The DOI of the article.
  * @param string $date
- *   The publication date of the article (unix)
+ *   The publication date of the article (unix).
  * @param string $title
- *   The title of the article
+ *   The title of the article.
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key
- *   'service_url' - override the url from lagotto_services_service_url
+ *   'service_key' - override the key from lagotto_services_service_key.
+ *   'service_url' - override the url from lagotto_services_service_url.
  *   'api_version' - override the api version number (e.g. '5'). Use with care.
- *   'quiet' - don't log failed creations because DOI already exists
- *   'autoupdate' - update if DOI exists on server
+ *   'quiet' - don't log failed creations because DOI already exists.
+ *   'autoupdate' - update if DOI exists on server.
  *
  * @return array
  *   An associative array containing the response from the server or null if
- * either drupal access is denied, the user and PW is unset or this facility
- * is administratively disabled.
+ *   either drupal access is denied, the user and PW is unset or this facility
+ *   is administratively disabled.
  */
 function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
   $default_options = array(
@@ -577,8 +507,8 @@ function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
  *
  * @return array
  *   An associative array containing the response from the server or null if
- * either drupal access is denied, the user and PW is unset or this facility
- * is administratively disabled.
+ *   either drupal access is denied, the user and PW is unset or this facility
+ *   is administratively disabled.
  */
 function lagotto_services_remove_doi($doi, $options = array()) {
   $default_options = array(
@@ -662,7 +592,6 @@ function lagotto_services_remove_doi($doi, $options = array()) {
  * @param mixed $doi_list
  *   The DOI for the article, or an array of them. DOIs are sanitised and
  *   invalid entries are ignored.
- *
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key

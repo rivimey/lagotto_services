@@ -1,7 +1,6 @@
 <?php
 /**
- * @file
- * lagotto_services.test
+ * @file lagotto_services.test
  *
  * Test suites for the Lagotto Server service access module.
  * @package lagotto_services
@@ -109,22 +108,26 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi);
-    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertEqual($fetch_url, $expected_url,
+     t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => FALSE));
-    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+    $this->assertEqual($fetch_url, $expected_url,
+     t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertEqual($fetch_url, $expected_url, t('Detail query test: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+    $this->assertEqual($fetch_url, $expected_url,
+     t('Detail query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
 
     $doi = '1054';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertNull($fetch_url, t('Not-a-DOI test: Got ' . $fetch_url . ', rather than fail'));
+    $this->assertNull($fetch_url,
+    t('Not-a-DOI test: Got @url, rather than fail', array('url' => $fetch_url)));
 
 
     $doi = '10.7554/jnl.01087';
@@ -136,7 +139,8 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
     );
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
-    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+    $this->assertEqual($fetch_url, $expected_url,
+     t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
 
     $service_server = 'http://alm.plos.org';
@@ -146,7 +150,8 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
     );
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
-    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url ' . $expected_url));
+    $this->assertEqual($fetch_url, $expected_url,
+     t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $service_server = 'plos.org';
     $options = array(
@@ -154,7 +159,8 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
       'service_url' => $service_server . '/api/v5/articles',
     );
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
-    $this->assertNull($fetch_url, t('Set bad URL: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertNull($fetch_url,
+      t('Set bad URL: Got @url, rather than expected url', array('url' => $fetch_url)));
   }
 
   public function testMakeFetchUrlArray() {
