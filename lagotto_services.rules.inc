@@ -9,7 +9,7 @@
  */
 function lagotto_services_rules_action_info() {
   $defaults = array(
-    'group' => t('Article Metrics'),
+    'group' => t('Services'),
   );
 
   return array(
@@ -18,6 +18,7 @@ function lagotto_services_rules_action_info() {
         'doi' => array(
           'type' => 'text',
           'label' => t('doi'),
+          'description' => t("A publication DOI in the form \"10.nnnn/*\". URL forms (doi: and dx.doi.org) are accepted and converted."),
         ),
         'date' => array(
           'type' => 'date',
@@ -26,6 +27,7 @@ function lagotto_services_rules_action_info() {
         'title' => array(
           'type' => 'text',
           'label' => t('Title of publication'),
+          'translatable' => TRUE,
         ),
         'autoupdate' => array(
           'type' => 'boolean',
@@ -45,6 +47,7 @@ function lagotto_services_rules_action_info() {
         'doi' => array(
           'type' => 'text',
           'label' => t('doi'),
+          'description' => t("A publication DOI in the form \"10.nnnn/*\". URL forms (doi: and dx.doi.org) are accepted and converted."),
         ),
       ),
       'provides' => array(
