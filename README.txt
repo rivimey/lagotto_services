@@ -44,7 +44,7 @@ There are no out-of-the-box visible elements provided in this module. Software
 must call one of the php API functions, of which the main ones are:
 
   lagotto_services_add_doi *
-  lagotto_services_delete_doi *
+  lagotto_services_remove_doi *
   lagotto_services_fetch_doi
   lagotto_services_service_host
   lagotto_services_service_key

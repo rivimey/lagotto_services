@@ -316,7 +316,7 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     $article_doi = '10.7554/jnl.99004';
     $article_date = strtotime('2013-11-15');
     $article_title = 'Test Title';
-    lagotto_services_delete_doi($article_doi, TRUE);
+    lagotto_services_remove_doi($article_doi, TRUE);
     $response = lagotto_services_add_doi($article_doi, $article_date, $article_title);
 
     $this->assertNotNull($response, t('Expect a response from the ALM server.'));
@@ -345,6 +345,6 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date_new), t('Publication date on the ALM server should be the same as that submitted on DOI update.'));
 
     // Cleanup of unused DOI.
-    lagotto_services_delete_doi($article_doi);
+    lagotto_services_remove_doi($article_doi);
   }
 }
