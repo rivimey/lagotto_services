@@ -193,6 +193,7 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
 
   /**
    * Representation of administrative user.
+   *
    * @access protected
    * @var object
    */
@@ -200,6 +201,7 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
 
   /**
    * Representation of web user.
+   *
    * @access protected
    * @var object
    */
@@ -258,7 +260,8 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
 
     $doi = '1054';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertNull($fetch_url, t('Not-a-DOI test: Got ' . $fetch_url . ', rather than fail'));
+    $this->assertNull($fetch_url,
+      t('Not-a-DOI test: Got @url, rather than expected fail', array('url' => $fetch_url)));
 
     $doi = '10.7554/jnl.01087';
     $service_server = 'http://alm.plos.org';

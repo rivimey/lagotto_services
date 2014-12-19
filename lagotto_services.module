@@ -496,7 +496,7 @@ function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
  * API: Delete a record request using the ALM v4 api.
  *
  * @param string $doi
- *   The DOI of the article
+ *   The DOI of the article.
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key.
