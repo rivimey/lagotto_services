@@ -4,9 +4,12 @@ Lagotto Services 1.0 Sandbox
 Initial Features
  - Admin interface to define URLs, keys and access.
  - Checking and verification of DOI format.
- - Support for fetching information for just one or an array of DOIs.
+ - Rules actions to add or remove a DOI from the server.
+ - Support for fetching information for an array of DOIs in one call.
  - Can disable & enable article changes independently of user role.
- - Built-in sanitisation of the DOI identifier with automatic removal of doi: and http: prefixes.
+ - Built-in sanitisation of the DOI identifier with automatic removal of doi:
+   and http://dx.doi.org prefixes.
+ - Status report entry to validate service configuration.
  - Simpletest test suite.
 
 Bug fixes
