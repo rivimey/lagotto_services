@@ -275,10 +275,7 @@ function lagotto_services_service_key() {
 }
 
 /**
- * Make a metrics retrieval URL for the indicated DOI.
- *
- * which should NOT have been urlencoded...
- * i.e. it is in the form "10.7554/jnl.01086"
+ * Make a metrics retrieval URL for a DOI in the form "10.7554/jnl.01086"
  *
  * Globals: defines define the default base URL and the API key.
  *
@@ -357,10 +354,10 @@ function lagotto_services_make_fetch_url($doi_list, $options = array()) {
 }
 
 /**
- * Check that the DOI is minimal.
+ * Convert a DOI into the minimal form '10.\d+/.+'.
  *
- * (i.e. not a URL or URI) and is valid (i.e. has at least
- * one slash in it).
+ * Check that a DOI is not a URL or URI and appears valid, returning the
+ * minimal form if possible or NULL.
  *
  * @param string $doi
  *   the DOI that is being checked
@@ -663,7 +660,8 @@ function lagotto_services_remove_doi($doi, $options = array()) {
  * To find a record on the ALM server using the DOI, returning the details
  *
  * @param mixed $doi_list
- *   The DOI for the article, or an array of them.
+ *   The DOI for the article, or an array of them. DOIs are sanitised and
+ *   invalid entries are ignored.
  *
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
@@ -672,7 +670,12 @@ function lagotto_services_remove_doi($doi, $options = array()) {
  *   'quiet' -  Don't log failed lookups.
  *
  * @return array|NULL
- *   The response object from drupal_http_request() or null if access denied.
+ *   The response object from drupal_http_request()
+ *   NULL if access denied or there were no valid DOIs passed in.
+ *   A constructed object with 'code' 500 if the service URL is invalid.
+ *
+ * @see lagotto_services_make_fetch_url
+ * @see lagotto_services_add_doi
  */
 function lagotto_services_fetch_doi($doi_list, $options = array()) {
   $default_options = array(
