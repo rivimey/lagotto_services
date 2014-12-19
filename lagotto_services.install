@@ -23,7 +23,7 @@ function lagotto_services_update_7100() {
 }
 
 /**
- *  Implements hook_requirements().
+ * Implements hook_requirements().
  */
 function lagotto_services_requirements($phase) {
   $requirements = array();

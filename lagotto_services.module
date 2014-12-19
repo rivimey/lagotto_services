@@ -204,7 +204,7 @@ function lagotto_services_service_key() {
 }
 
 /**
- * Make a metrics retrieval URL for a DOI in the form "10.7554/jnl.01086"
+ * Make a metrics retrieval URL for a DOI in the form "10.7554/jnl.01086".
  *
  * Globals: defines define the default base URL and the API key.
  *
@@ -212,7 +212,6 @@ function lagotto_services_service_key() {
  *   The DOI that is being enquired about. This can be either a string or an
  *   array of strings. Invalid DOIs are ignored, and prefixes (e.g. doi:) are
  *   removed.
- *
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key.
@@ -500,10 +499,10 @@ function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
  *   The DOI of the article
  * @param array $options
  *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key
- *   'service_url' - override the url from lagotto_services_service_url
+ *   'service_key' - override the key from lagotto_services_service_key.
+ *   'service_url' - override the url from lagotto_services_service_url.
  *   'api_version' - override the api version number (e.g. '5'). Use with care.
- *   'quiet' - don't log failed deletions because lookup failed
+ *   'quiet' - don't log failed deletions when the initial lookup fails.
  *
  * @return array
  *   An associative array containing the response from the server or null if

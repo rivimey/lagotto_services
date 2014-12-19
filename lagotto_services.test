@@ -1,8 +1,8 @@
 <?php
 /**
- * @file lagotto_services.test
- *
+ * @file
  * Test suites for the Lagotto Server service access module.
+ *
  * @package lagotto_services
  */
 
@@ -98,7 +98,7 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
   }
 
   /**
-   * Check for the make url function.
+   * Check for the make url function when provided with a doi string.
    */
   public function testMakeFetchUrl() {
     $service_server = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
@@ -158,6 +158,9 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
       t('Set bad URL: Got @url, rather than expected url', array('url' => $fetch_url)));
   }
 
+  /**
+   * Check the make fetch url function when provided with a doi array.
+   */
   public function testMakeFetchUrlArray() {
     $service_server = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
     $key = lagotto_services_service_key();
@@ -172,10 +175,12 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $expected_dois = '10.7554/jnl.01087%2C10.361/sbifyus%2C10.7554/jnl.01086.003';
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_dois . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi);
-    $this->assertEqual($fetch_url, $expected_url, t('Summary query test: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertEqual($fetch_url, $expected_url,
+      t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $fetch_url = lagotto_services_make_fetch_url(array());
-    $this->assertNull($fetch_url, t('Set bad URL array: Got ' . $fetch_url . ', rather than expected null'));
+    $this->assertNull($fetch_url,
+      t('Set bad URL array: Got @url, rather than expected null', array('url' => $fetch_url)));
   }
 }
 
@@ -260,18 +265,21 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     variable_set('lagotto_services_url', $service_server);
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertEqual($fetch_url, $expected_url,
+      t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $service_server = 'http://alm.plos.org';
     variable_set('lagotto_services_url', $service_server);
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertEqual($fetch_url, $expected_url, t('Set good URL: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertEqual($fetch_url, $expected_url,
+      t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $service_server = 'plos.org';
     variable_set('lagotto_services_url', $service_server);
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
-    $this->assertNull($fetch_url, t('Set bad URL: Got ' . $fetch_url . ', rather than expected url'));
+    $this->assertNull($fetch_url,
+      t('Set bad URL: Got @url, rather than expected url', array('url' => $fetch_url)));
   }
 
   /**
@@ -279,7 +287,7 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
    */
   public function testFetchDoi() {
     $service_url = lagotto_services_service_url();
-    $service_url_structure = $service_url . '?api_key=[API_KEY]&type=doi&ids=[DOI]&info=[INCLUDE_HISTORY]';
+    $service_url_structure = $service_url . '?api_key=[API_KEY]&type=doi&ids=[DOI]&info=[INCLUDE_DETAIL]';
 
     $article_doi = '10.7554/jnl.01086';
     $article_title = 'Essential yet limited role for CCR2+ inflammatory monocytes during Mycobacterium tuberculosis-specific T cell priming';
@@ -287,22 +295,28 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     $api_key = lagotto_services_service_key();
     $fetch_url = lagotto_services_make_fetch_url($article_doi);
     $fetch_url_check = $service_url . '?api_key=' . $api_key . '&type=doi&ids=' . str_replace('%2F', '/', rawurlencode($article_doi)) . '&info=summary';
-    $this->assertTrue(strpos($fetch_url, $service_url) === 0, t('Fetch URL should be prefixed by service URL: @service_url', array('@service_url' => $service_url)));
-    $this->assertEqual($fetch_url, $fetch_url_check, t('Fetch URL should have the structure: @service_url', array('@service_url' => $service_url_structure)));
+    $this->assertTrue(strpos($fetch_url, $service_url) === 0,
+      t('Fetch URL should be prefixed by service URL: @service_url', array('@service_url' => $service_url)));
+    $this->assertEqual($fetch_url, $fetch_url_check,
+      t('Fetch URL should have the structure: @service_url', array('@service_url' => $service_url_structure)));
 
-    $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
+    $record = lagotto_services_fetch_doi($article_doi, array('include_detail' => TRUE, 'quiet' => TRUE));
     $this->assertNotNull($record, t('Expect a response from the Lagotto server.'));
     $this->assertEqual($record->code, 200, t('Status code should be 200 from the Lagotto server.'));
 
     $record_json = json_decode($record->data, TRUE);
     $record_doi = $record_json[0];
-    $this->assertEqual($record_doi['doi'], $article_doi, 'DOI returned from query should be same as requested.');
+    $this->assertEqual($record_doi['doi'], $article_doi,
+      t('DOI returned from query should be same as requested.'));
 
-    $this->assertEqual($record_doi['title'], $article_title, t('Title returned should be same as on Drupal site.'));
+    $this->assertEqual($record_doi['title'], $article_title,
+      t('Title returned should be same as on Drupal site.'));
 
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the ALM server should be the same as that stored locally.'));
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date),
+      t('Publication date on the ALM server should be the same as that stored locally.'));
 
-    $this->assertTrue(($record_doi['citations'] >= 1), t('Expect to see at least 1 citation for this DOI.'));
+    $this->assertTrue(($record_doi['citations'] >= 1),
+      t('Expect to see at least 1 citation for this DOI.'));
   }
 
   /**
