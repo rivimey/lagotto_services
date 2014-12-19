@@ -11,7 +11,7 @@
  *
  * @package lagotto_services
  */
-class AlmServicesUnitTestCase extends DrupalUnitTestCase {
+class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
 
   /**
    * Return information related to the test suite.
@@ -111,24 +111,20 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
     $this->assertEqual($fetch_url, $expected_url,
      t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
-
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => FALSE));
     $this->assertEqual($fetch_url, $expected_url,
      t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
-
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
     $this->assertEqual($fetch_url, $expected_url,
      t('Detail query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
-
     $doi = '1054';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
     $this->assertNull($fetch_url,
     t('Not-a-DOI test: Got @url, rather than fail', array('url' => $fetch_url)));
-
 
     $doi = '10.7554/jnl.01087';
     $expected_doi = '10.7554/jnl.01087';
@@ -141,7 +137,6 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
     $this->assertEqual($fetch_url, $expected_url,
      t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
-
 
     $service_server = 'http://alm.plos.org';
     $options = array(
@@ -181,8 +176,6 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
 
     $fetch_url = lagotto_services_make_fetch_url(array());
     $this->assertNull($fetch_url, t('Set bad URL array: Got ' . $fetch_url . ', rather than expected null'));
-
-
   }
 }
 
@@ -191,7 +184,7 @@ class AlmServicesUnitTestCase extends DrupalUnitTestCase {
  *
  * @package lagotto_services
  */
-class AlmServicesWebTestCase extends DrupalWebTestCase {
+class LagottoServicesWebTestCase extends DrupalWebTestCase {
 
   /**
    * Representation of administrative user.
@@ -216,7 +209,7 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
       'name' => t('lagotto_services web tests'),
-      'description' => t('Executes test suite for ALM Server service access module'),
+      'description' => t('Executes test suite for Lagotto Server service access module'),
       'group' => t('Services'),
     );
   }
@@ -248,7 +241,7 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     variable_set('lagotto_services_delete_doi_enabled', TRUE);
     variable_set('lagotto_services_adminuser', 'tester');
     variable_set('lagotto_services_adminpass', 'pass');
-    variable_set('lagotto_services_url', 'http://alm.example.org');
+    variable_set('lagotto_services_url', 'http://lagotto.example.org');
     variable_set('lagotto_services_apikey', 'E4DDC0F3B36829BB30CFD2D104C4819865BC5C29487B');
   }
 
@@ -293,14 +286,13 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     $article_date = strtotime('2013-11-12');
     $api_key = lagotto_services_service_key();
     $fetch_url = lagotto_services_make_fetch_url($article_doi);
-    $fetch_url_parsed = drupal_parse_url($fetch_url);
     $fetch_url_check = $service_url . '?api_key=' . $api_key . '&type=doi&ids=' . str_replace('%2F', '/', rawurlencode($article_doi)) . '&info=summary';
     $this->assertTrue(strpos($fetch_url, $service_url) === 0, t('Fetch URL should be prefixed by service URL: @service_url', array('@service_url' => $service_url)));
     $this->assertEqual($fetch_url, $fetch_url_check, t('Fetch URL should have the structure: @service_url', array('@service_url' => $service_url_structure)));
 
     $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
-    $this->assertNotNull($record, t('Expect a response from the ALM server.'));
-    $this->assertEqual($record->code, 200, t('Status code should be 200 from the ALM server.'));
+    $this->assertNotNull($record, t('Expect a response from the Lagotto server.'));
+    $this->assertEqual($record->code, 200, t('Status code should be 200 from the Lagotto server.'));
 
     $record_json = json_decode($record->data, TRUE);
     $record_doi = $record_json[0];
@@ -325,22 +317,22 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     lagotto_services_remove_doi($article_doi, TRUE);
     $response = lagotto_services_add_doi($article_doi, $article_date, $article_title);
 
-    $this->assertNotNull($response, t('Expect a response from the ALM server.'));
+    $this->assertNotNull($response, t('Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 201, t('Response from server should be 201 for DOI creation.'));
 
     $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
-    $this->assertNotNull($record, t('Expect a response from the ALM server.'));
+    $this->assertNotNull($record, t('Expect a response from the Lagotto server.'));
     $this->assertEqual($record->code, 200, t('Response from server should be 200 for DOI lookup.'));
 
     $record_json = json_decode($record->data, TRUE);
     $record_doi = $record_json[0];
     $this->assertEqual($record_doi['title'], $article_title, t('Title returned should be same as on submitted on DOI creation.'));
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the ALM server should be the same as that submitted on DOI creation.'));
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the Lagotto server should be the same as that submitted on DOI creation.'));
 
     $article_date_new = strtotime('2013-11-17');
     $article_title_new = 'Test Title new';
     $response = lagotto_services_add_doi($article_doi, $article_date_new, $article_title_new, TRUE);
-    $this->assertNotNull($response, t('Expect a response from the ALM server.'));
+    $this->assertNotNull($response, t('Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 200, t('Response from server should be 200 for DOI update.'));
 
     $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
@@ -348,7 +340,7 @@ class AlmServicesWebTestCase extends DrupalWebTestCase {
     $record_json = json_decode($record->data, TRUE);
     $record_doi = $record_json[0];
     $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned should be same as on submitted on DOI update.'));
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date_new), t('Publication date on the ALM server should be the same as that submitted on DOI update.'));
+    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date_new), t('Publication date on the Lagotto server should be the same as that submitted on DOI update.'));
 
     // Cleanup of unused DOI.
     lagotto_services_remove_doi($article_doi);

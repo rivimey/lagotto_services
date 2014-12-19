@@ -18,7 +18,9 @@ function lagotto_services_rules_action_info() {
         'doi' => array(
           'type' => 'text',
           'label' => t('doi'),
-          'description' => t("A publication DOI in the form \"10.nnnn/*\". URL forms (doi: and dx.doi.org) are accepted and converted."),
+          'description' => t(
+            'A publication DOI in the form "10.nnnn/*". URL forms (doi: and dx.doi.org) are accepted and converted.'
+          ),
         ),
         'date' => array(
           'type' => 'date',
@@ -40,14 +42,16 @@ function lagotto_services_rules_action_info() {
           'label' => t('Returned data'),
         ),
       ),
-      'label' => t('Submit article info to ALM server'),
+      'label' => t('Submit article info to Lagotto server'),
     ),
     'lagotto_services_rules_doi_delete' => $defaults + array(
       'parameter' => array(
         'doi' => array(
           'type' => 'text',
           'label' => t('doi'),
-          'description' => t("A publication DOI in the form \"10.nnnn/*\". URL forms (doi: and dx.doi.org) are accepted and converted."),
+          'description' => t(
+            'A publication DOI in the form "10.nnnn/*". URL forms (doi: and dx.doi.org) are accepted and converted.'
+          ),
         ),
       ),
       'provides' => array(
@@ -56,7 +60,7 @@ function lagotto_services_rules_action_info() {
           'label' => t('Returned data'),
         ),
       ),
-      'label' => t('Delete article info on ALM server'),
+      'label' => t('Delete article info on Lagotto server'),
     ),
   );
 }
