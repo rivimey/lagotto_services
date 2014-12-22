@@ -10,8 +10,8 @@ define('LAGOTTO_SERVICES_DOI_URL', 'http://dx.doi.org/');
 define('LAGOTTO_SERVICES_DOI_SSLURL', 'https://dx.doi.org/');
 
 define('LAGOTTO_SERVICES_SERVICE_URI', '/api/v%version%/articles');
-define('LAGOTTO_SERVICES_SERVICE_API_FETCH', 5);
-define('LAGOTTO_SERVICES_SERVICE_API_POST', 4);
+define('LAGOTTO_SERVICES_API_FETCH', 5);
+define('LAGOTTO_SERVICES_API_POST', 4);
 
 define('LAGOTTO_SERVICES_DEFAULT_DOMAIN', 'http://alm.plos.org');
 define('LAGOTTO_SERVICES_DEFAULT_KEY', '');
@@ -173,20 +173,16 @@ function lagotto_services_service_creds() {
  *
  * @see lagotto_services_service_host
  */
-function lagotto_services_service_url($version = LAGOTTO_SERVICES_SERVICE_API_FETCH) {
-  $available_versions = array(
-    LAGOTTO_SERVICES_SERVICE_API_FETCH,
-    LAGOTTO_SERVICES_SERVICE_API_POST,
-  );
-
-  if (!in_array($version, $available_versions)) {
-    $version = LAGOTTO_SERVICES_SERVICE_API_FETCH;
+function lagotto_services_service_url($version = LAGOTTO_SERVICES_API_FETCH) {
+  $possible_versions = array( 3, 4, 5 );
+  if (!in_array($version, $possible_versions)) {
+    $version = LAGOTTO_SERVICES_API_FETCH;
   }
 
   $service_uri = preg_replace('/\%version\%/', $version, LAGOTTO_SERVICES_SERVICE_URI);
 
-  $url = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN) . $service_uri;
-  return $url;
+  $url = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
+  return $url . $service_uri;
 }
 
 /**
@@ -204,6 +200,47 @@ function lagotto_services_service_key() {
 }
 
 /**
+ * Return an article description array in a form suitable for submission.
+ *
+ * All parameters are validated using check_plain.
+ *
+ * @param string $doi
+ *    The DOI of the article.
+ * @param timestamp $date
+ *    The publication date, compatible with date().
+ * @param string $title
+ *    The title of the article. Must be UTF-8 encoded.
+ *
+ * @return array
+ *    An array containing an 'article' key containing the following keys:
+ *    'doi' - The DOI of the article.
+ *    'title' - The XSS-filtered title, with any html entities decoded.
+ *    'year' - the publication year, e.g. 2011
+ *    'month' - the publication month, e.g. 6
+ *    'day' - the publication day, e.g. 15
+ */
+function lagotto_services_make_article_desc($doi, $date, $title) {
+  $year = check_plain(date('Y', $date));
+  $mon = check_plain(date('n', $date));
+  $day = check_plain(date('j', $date));
+
+  $doi = check_plain($doi);
+
+  // Turn html entities into utf8 and strip html elements.
+  $title = html_entity_decode(filter_xss($title, array()), ENT_QUOTES, 'UTF-8');
+  $title = check_plain($title);
+
+  $descriptor = array(
+    'doi' => $doi,
+    'title' => $title,
+    'year' => (int) $year,
+    'month' => (int) $mon,
+    'day' => (int) $day,
+  );
+  return array('article' => $descriptor);
+}
+
+/**
  * Make a metrics retrieval URL for a DOI in the form "10.7554/jnl.01086".
  *
  * Globals: defines define the default base URL and the API key.
@@ -217,39 +254,59 @@ function lagotto_services_service_key() {
  *   'service_key' - override the key from lagotto_services_service_key.
  *   'service_url' - override the url from lagotto_services_service_url.
  *                   This should be the full api link, not just the base.
- *   'api_version' - override the api version number (e.g. '5'). Use with care.
+ *   'fetch_api_version' - override the normal api version number (e.g. '5').
+ *   'sources' - if present must be an array of names of data sources.
+ *   'order_by' - The order of results:
+ *                   'date' - use descending date,
+ *                   'event' - by descending event count
  *
- * @return string
- *   A URL to be retrieved.
+ * @return string|null
+ *   A URL to be retrieved, or NULL if:
+ *   - zero or more than 50 DOIs are present after cleaning,
+ *   - if the server URL is invalid.
  */
 function lagotto_services_make_fetch_url($doi_list, $options = array()) {
   $default_options = array(
     'include_detail' => FALSE,
     'service_key' => NULL,
     'service_url' => NULL,
-    'api_version' => LAGOTTO_SERVICES_SERVICE_API_FETCH,
+    'sources' => NULL,
+    'order_by' => NULL,
+    'fetch_api_version' => LAGOTTO_SERVICES_API_FETCH,
   );
   $options = array_merge($default_options, $options);
+
+  $sources = array();
+  $dois = array();
 
   // Wrap single doi with array to make remaining logic simpler.
   if (is_string($doi_list)) {
     $doi_list = array($doi_list);
   }
 
+  // Sanitise the DOI list.
   if (is_array($doi_list)) {
-    $dois = array();
     foreach ($doi_list as $doi) {
       $d = lagotto_services_sanitise_doi($doi);
       if (!empty($d)) {
         $dois[] = $d;
       }
     }
-    $clean_dois = implode(',', $dois);
   }
 
-  // If none of the DOIs cleaned ok, signal an error.
-  if (empty($clean_dois)) {
+  // If none of the DOIs was valid, there are more than the server will process,
+  // or the original $doi_list was neither a string nor an array, return null.
+  if (empty($dois) || count($dois) > 50) {
     return NULL;
+  }
+
+  if (!empty($options['sources']) && is_array($options['sources'])) {
+    $source_list = array();
+    foreach ($source_list as $src) {
+      if (is_string($src) && !empty($src)) {
+        $sources[] = $src;
+      }
+    }
   }
 
   // We allow the url to be overriden, but if so it should be the whole thing.
@@ -257,28 +314,32 @@ function lagotto_services_make_fetch_url($doi_list, $options = array()) {
     $url = $options['service_url'];
   }
   else {
-    $url = lagotto_services_service_url($options['api_version']);
+    $url = lagotto_services_service_url($options['fetch_api_version']);
   }
   if (!valid_url($url, TRUE)) {
     return NULL;
   }
+
   $key = lagotto_services_service_key();
 
-  // Translate the detail flag.
-  if ($options['include_detail']) {
-    $info = 'detail';
-  }
-  else {
-    $info = 'summary';
-  }
+  // Translate the flags.
+  $info = ($options['include_detail']) ? 'detail' : 'summary';
 
   // Finally, construct the url.
   $query = array(
     'api_key' => $key,
     'type' => 'doi',
-    'ids' => $clean_dois,
+    'ids' => implode(',', $dois),
     'info' => $info,
   );
+  // Optional 'order' flag.
+  if ($options['order_by'] == 'event' && !empty($sources)) {
+    $query['order'] = NULL;
+  }
+  // Optional sources list.
+  if (!empty($sources)) {
+    $query['sources'] = implode(',', $sources);
+  }
   return url($url, array('absolute' => TRUE, 'query' => $query));
 }
 
@@ -333,6 +394,144 @@ function lagotto_services_sanitise_doi_cache($doi) {
 }
 
 /**
+ * Internal function to construct and send a PUT or POST request to the server.
+ *
+ * @param string $base_url
+ *    The URL to use, to which the DOI will be added.
+ * @param array $article_info
+ *    The Lagotto options array defining this request. It must be in this form:
+ *       array('article' => lagotto_services_make_article_desc(...) );
+ *    Can be NULL if there is no body to send.
+ * @param bool $action
+ *    One of 'POST' (Add), 'PUT' (Update) or 'DELETE' (Delete).
+ *
+ * @return object
+ *    The returned HTTP response object.
+ */
+function lagotto_services_do_modify_request($base_url, $action, $article_info = NULL) {
+  $auth64 = lagotto_services_make_auth_token();
+  if (empty($auth64)) {
+    watchdog('lagotto_services',
+      'DOI request failed: credentials not set',
+      WATCHDOG_ERROR);
+    return NULL;
+  }
+
+  // The successful API response differs for Add / Update. and the DOI should
+  // be in the URL for v4 Update.
+  $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
+  $success = 200;
+  switch ($action) {
+    case 'PUT':
+      $success = 201;
+      break;
+    case 'POST':
+      $url = $base_url;
+      break;
+    case 'DELETE':
+      break;
+    default:
+      watchdog('lagotto_services',
+        'DOI request failed: invalid action requested.',
+        WATCHDOG_ERROR);
+      return NULL;
+  }
+
+  $http_options = array(
+    'headers' => array(
+      'Content-Type' => 'application/json',
+      'Accept' => 'application/json',
+      'Authorization' => $auth64,
+    ),
+    'method' => $action,
+  );
+
+  $body = json_encode($article_info);
+  $http_options['data'] = $body;
+  $response = drupal_http_request($url, $http_options);
+
+  if (empty($response) || $response->code != $success) {
+    watchdog('lagotto_services',
+      'Remote DOI request to [%url] of [%req] failed code [%code] with message [%msg]',
+      array(
+        '%url' => $url,
+        '%req' => $body,
+        '%code' => $response->code,
+        '%msg' => $response->data,
+      ), WATCHDOG_WARNING);
+  }
+  return $response;
+}
+
+/**
+ * Make an HTTP Basic auth token from the credentials defined in module config.
+ *
+ * @return null|string
+ *   NULL if either the user or password is not set, or a base64 encoded
+ *   token usable in the HTTP Authorization header.
+ */
+function lagotto_services_make_auth_token() {
+  // Form the http basic authentication token for the api call.
+  $creds = lagotto_services_service_creds();
+  if (empty($creds['user']) || empty($creds['pass'])) {
+    return NULL;
+  }
+  $auth64 = base64_encode($creds['user'] . ':' . $creds['pass']);
+  return 'Basic ' . $auth64;
+}
+
+/**
+ * API: Delete a record request using the ALM v4 api.
+ *
+ * @param string $doi
+ *   The DOI of the article.
+ * @param array $options
+ *   'include_detail' - TRUE to include timeline info in the metrics.
+ *   'service_key' - override the key from lagotto_services_service_key.
+ *   'service_url' - override the url from lagotto_services_service_url.
+ *   'fetch_api_version' - override the normal api for existence checks (e.g. '5').
+ *   'post_api_version' - override the api version number (e.g. '4'). Use with care.
+ *   'quiet' - don't log failed deletions when the initial lookup fails.
+ *
+ * @return array
+ *   An associative array containing the response from the server or null if
+ *   either drupal access is denied, the user and PW is unset or this facility
+ *   is administratively disabled.
+ */
+function lagotto_services_remove_doi($doi, $options = array()) {
+  $enabled = lagotto_services_remove_doi_enabled();
+  if (!$enabled) {
+    watchdog('lagotto_services',
+      'Delete DOI request failed: permission denied',
+      WATCHDOG_WARNING);
+    return NULL;
+  }
+
+  $default_options = array(
+    'include_detail' => FALSE,
+    'service_key' => NULL,
+    'service_url' => NULL,
+    'post_api_version' => LAGOTTO_SERVICES_API_POST,
+    'quiet' => FALSE,
+  );
+  $options = array_merge($default_options, $options);
+  $url = lagotto_services_service_url($options['post_api_version']);
+
+  // If the DOI is already on the server we need to check for update.
+  $doi_on_server = lagotto_services_doi_exists($options);
+  if (!empty($doi_on_server)) {
+    $response = lagotto_services_do_modify_request($url, 'DELETE');
+    return $response;
+  }
+  elseif (!$options['quiet']) {
+    watchdog('lagotto_services',
+      'DOI [%doi] does not exist on the Lagotto server. Deletion not performed.',
+      array('%doi' => $doi),
+      WATCHDOG_WARNING);
+  }
+}
+
+/**
  * API: Make a request using the ALM v4 api.
  *
  * To create a new record on the ALM server using the DOI and other details
@@ -348,238 +547,95 @@ function lagotto_services_sanitise_doi_cache($doi) {
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key.
  *   'service_url' - override the url from lagotto_services_service_url.
- *   'api_version' - override the api version number (e.g. '5'). Use with care.
+ *   'fetch_api_version' - override the normal api for existence checks (e.g. '5').
+ *   'post_api_version' - override the api version number (e.g. '4'). Use with care.
  *   'quiet' - don't log failed creations because DOI already exists.
  *   'autoupdate' - update if DOI exists on server.
  *
- * @return array
- *   An associative array containing the response from the server or null if
- *   either drupal access is denied, the user and PW is unset or this facility
- *   is administratively disabled.
+ * @return array|null
+ *   Eithera an associative array containing the response from the server or
+ *   NULL if either drupal access is denied, the user or PW is unset, the
+ *   article was not updated (e.g. it was already there), or this function is
+ *   administratively disabled.
  */
 function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
+  $enabled = lagotto_services_add_doi_enabled();
+  if (!$enabled) {
+    watchdog('lagotto_services',
+      'Add DOI request failed: permission denied', WATCHDOG_ERROR);
+    return NULL;
+  }
+
   $default_options = array(
     'include_detail' => FALSE,
-    'service_key' => NULL,
-    'service_url' => NULL,
-    'api_version' => LAGOTTO_SERVICES_SERVICE_API_POST,
+    'post_api_version' => LAGOTTO_SERVICES_API_POST,
     'autoupdate' => FALSE,
     'quiet' => FALSE,
   );
   $options = array_merge($default_options, $options);
 
-  $enabled = lagotto_services_add_doi_enabled();
-  if (!$enabled) {
-    watchdog('lagotto_services', 'Add DOI request failed: permission denied', WATCHDOG_WARNING);
-    return NULL;
+  $article_desc = lagotto_services_make_article_desc($doi, $date, $title);
+  $url = lagotto_services_service_url($options['post_api_version']);
+
+  // If the DOI is already on the server we need to check for update.
+  $doi_on_server = lagotto_services_doi_exists($options);
+  if (empty($doi_on_server)) {
+    // Send the addition request.
+    $response = lagotto_services_do_modify_request($url, 'POST', $article_desc);
+    return $response;
   }
+  elseif ($options['autoupdate']) {
+    // Looking up the DOI succeeded and we have autoupdate set.
+    // See if the returned info differs and update if needed.
+    $record_date = strtotime($doi_on_server['publication_date']);
+    $same_date = (date('Y-m-d', $record_date) == date('Y-m-d', $date));
+    $same_title = ($doi_on_server['title'] == $title);
 
-  $fetch_options = array(
-    'api_version' => LAGOTTO_SERVICES_SERVICE_API_FETCH,
-    'include_detail' => FALSE,
-    'quiet' => TRUE,
-  );
-  $fetch_options = array_merge($options, $fetch_options);
-  $lookup = lagotto_services_fetch_doi($doi, $fetch_options);
-
-  if ($lookup && ($lookup->code != 200 || $options['autoupdate'])) {
-    $year = check_plain(date('Y', $date));
-    $mon = check_plain(date('n', $date));
-    $day = check_plain(date('j', $date));
-
-    // Turn html entities into utf8 and strip html elements.
-    $title = html_entity_decode(filter_xss($title, array()), ENT_QUOTES, 'UTF-8');
-    $title = check_plain($title);
-
-    // Form the http basic authentication token for the api call.
-    $creds = lagotto_services_service_creds();
-    if (empty($creds['user']) || empty($creds['pass'])) {
-      watchdog('lagotto_services',
-        'Add DOI request failed: credentials not set',
-        WATCHDOG_WARNING);
-      return NULL;
-    }
-    $auth64 = base64_encode($creds['user'] . ':' . $creds['pass']);
-
-    $request = array(
-      'article' => array(
-        'doi' => $doi,
-        'title' => $title,
-        'year' => (int) $year,
-        'month' => (int) $mon,
-        'day' => (int) $day,
-      ),
-    );
-
-    $options = array(
-      'headers' => array(
-        'Content-Type' => 'application/json',
-        'Accept' => 'application/json',
-        'Authorization' => 'Basic ' . $auth64,
-      ),
-      'method' => 'POST',
-    );
-
-    $url = lagotto_services_service_url($options['api_version']);
-
-    $updated = FALSE;
-
-    // If looking up the DOI fails, then the record doesn't already
-    // exist, so just send the addition request.
-    if (empty($lookup) || $lookup->code != 200) {
-      $body = json_encode($request);
-      $options['data'] = $body;
-      $response = drupal_http_request($url, $options);
-
-      // Log a warning to the watchdog log if the addition fails.
-      if ($response->code != 201) {
-        watchdog('lagotto_services',
-          'Info DOI request [%req] failed code [%code] with message [%msg]',
-          array(
-            '%req' => $body,
-            '%code' => $response->code,
-            '%msg' => $response->data,
-          ), WATCHDOG_WARNING);
-      }
-
+    if (!($same_date && $same_title)) {
+      $response = lagotto_services_do_modify_request($url, 'PUT', $article_desc);
       return $response;
     }
-    elseif ($options['autoupdate']) {
-      // Looking up the DOI succeeded but we have autoupdate set, so possibly
-      // the returned info differs from the new. Check and update if needed.
-      $lookup_data = json_decode($lookup->data, TRUE);
-      $lookup_doi = reset($lookup_data);
-      // Do the details from the current record differ from those provided?
-      $record_date = strtotime($lookup_doi['publication_date']);
-      $same_date = date('Y-m-d', $record_date) == date('Y-m-d', $date);
-      $same_title = $lookup_doi['title'] == $title;
-      if (!($same_date && $same_title)) {
-        // Perform update.
-        $options['method'] = 'PUT';
-
-        unset($request['headers']['doi']);
-        $body = json_encode($request);
-        $options['data'] = $body;
-
-        $url .= '/info:doi/' . $doi;
-        $response = drupal_http_request($url, $options);
-
-        // Evaluate response code.
-        if (empty($response) || $response->code != 200) {
-          watchdog('lagotto_services',
-            'Remote DOI request [%req] failed code [%code] with message [%msg]',
-            array(
-              '%req' => $body,
-              '%code' => $response->code,
-              '%msg' => $response->data,
-            ), WATCHDOG_WARNING);
-        }
-        else {
-          $updated = TRUE;
-        }
-
-        return $response;
-      }
-    }
-
-    if (!$updated && !$options['quiet']) {
-      watchdog('lagotto_services',
-        'DOI [%doi] already exists on the ALM server',
-        array(
-          '%doi' => $doi,
-        ), WATCHDOG_WARNING);
-    }
+    return NULL;
+  }
+  elseif (!$options['quiet']) {
+    watchdog('lagotto_services',
+      'DOI [%doi] already exists on the ALM server',
+      array(
+        '%doi' => $doi,
+      ), WATCHDOG_WARNING);
+    return NULL;
   }
 }
 
 /**
- * API: Delete a record request using the ALM v4 api.
+ * API: Check for existence of the DOI.
  *
  * @param string $doi
- *   The DOI of the article.
+ *   The DOI for the article.
  * @param array $options
- *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key.
- *   'service_url' - override the url from lagotto_services_service_url.
- *   'api_version' - override the api version number (e.g. '5'). Use with care.
- *   'quiet' - don't log failed deletions when the initial lookup fails.
+ *   'service_key' - override the key from lagotto_services_service_key
+ *   'service_url' - override the url from lagotto_services_service_url
+ *   'fetch_api_version' - override the normal api (e.g. '5').
+ *   'sources' - if present, an array of source names to filter the results.
+ *   Note that include_detail and quiet keys are overriden.
  *
- * @return array
- *   An associative array containing the response from the server or null if
- *   either drupal access is denied, the user and PW is unset or this facility
- *   is administratively disabled.
+ * @return array|null
+ *   The decoded JSON data for the DOI if the DOI exists, NULL otherwise.
  */
-function lagotto_services_remove_doi($doi, $options = array()) {
-  $default_options = array(
-    'include_detail' => FALSE,
-    'service_key' => NULL,
-    'service_url' => NULL,
-    'api_version' => LAGOTTO_SERVICES_SERVICE_API_POST,
-    'quiet' => FALSE,
-  );
-  $options = array_merge($default_options, $options);
-
-  $enabled = lagotto_services_remove_doi_enabled();
-  if (!$enabled) {
-    watchdog('lagotto_services',
-      'Delete DOI request failed: permission denied',
-      WATCHDOG_WARNING);
-    return NULL;
-  }
-
-  // Do a fetch to see if the article exists on the server.
-  $fetch_options = array(
-    'api_version' => LAGOTTO_SERVICES_SERVICE_API_FETCH,
+function lagotto_services_doi_exists($doi, $options = array()) {
+  $override_options = array(
     'include_detail' => FALSE,
     'quiet' => TRUE,
   );
-  $fetch_options = array_merge($options, $fetch_options);
-  $lookup = lagotto_services_fetch_doi($doi, $fetch_options);
+  $options = array_merge($options, $override_options);
 
+  $lookup = lagotto_services_fetch_doi($doi, $options);
   if (!empty($lookup) && $lookup->code == 200) {
-
-    $url = lagotto_services_service_url($options['api_version']) . '/info:doi/' . $doi;
-
-    $user = variable_get('lagotto_services_adminuser', '');
-    $pass = variable_get('lagotto_services_adminpass', '');
-    if (empty($user) || empty($pass)) {
-      watchdog('lagotto_services',
-        'Delete DOI request failed: credentials not set',
-        WATCHDOG_WARNING);
-      return NULL;
-    }
-    $auth64 = base64_encode($user . ':' . $pass);
-
-    // Construct an authenticated http request for the JSON data.
-    $options = array(
-      'headers' => array(
-        'Content-Type' => 'application/json',
-        'Accept' => 'application/json',
-        'Authorization' => 'Basic ' . $auth64,
-      ),
-      'method' => 'DELETE',
-    );
-    $response = drupal_http_request($url, $options);
-
-    // If it didn't work and we're not being quiet, log the event.
-    if (!$options['quiet'] && $response->code != 200) {
-      watchdog('lagotto_services', 'Remote DOI request [%req] failed code [%code] with message [%msg]',
-        array(
-          '%doi' => $doi,
-          '%code' => $response->code,
-          '%msg' => $response->data,
-        ),
-        WATCHDOG_WARNING);
-    }
-    return $response;
+    $lookup_data = json_decode($lookup->data, TRUE);
+    return reset($lookup_data);
   }
-  elseif (!$options['quiet']) {
-    watchdog('lagotto_services',
-      'DOI [%doi] doesn\'t already exist on the ALM server. Deletion not performed.',
-      array(
-        '%doi' => $doi,
-      ),
-      WATCHDOG_WARNING);
+  else {
+    return NULL;
   }
 }
 
@@ -595,7 +651,12 @@ function lagotto_services_remove_doi($doi, $options = array()) {
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key
  *   'service_url' - override the url from lagotto_services_service_url
+ *   'fetch_api_version' - override the normal api (e.g. '5').
  *   'quiet' -  Don't log failed lookups.
+ *   'sources' - if present, an array of source names to filter the results.
+ *   'order_by' - The order of results:
+ *     'date' - use descending date,
+ *     'event' - by descending event count
  *
  * @return array|NULL
  *   The response object from drupal_http_request()
@@ -611,6 +672,8 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
     'quiet' => FALSE,
     'service_key' => NULL,
     'service_url' => NULL,
+    'sources' => NULL,
+    'order_by' => NULL,
   );
   $options = array_merge($default_options, $options);
 
@@ -622,7 +685,7 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
     return NULL;
   }
 
-  $request = array(
+  $http_request = array(
     'headers' => array(
       'Accept' => 'application/json',
     ),
@@ -632,7 +695,7 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
   // Make a request URL and do it.
   $url = lagotto_services_make_fetch_url($doi_list, $options);
   if (!empty($url)) {
-    $response = drupal_http_request($url, $request);
+    $response = drupal_http_request($url, $http_request);
   }
   else {
     $response = new stdClass();

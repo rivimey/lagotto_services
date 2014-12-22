@@ -1,5 +1,5 @@
 Overview
-================
+========
 
 This module provides a PHP wrapper for the web services supplied by the
 article metrics server Lagotto, which is used by journal publishing companies
@@ -13,7 +13,7 @@ the remote server are made available to the client.
 
 
 REQUIREMENTS
-================
+============
 
  - Runs on PHP 5.3.x
  - Drupal 7.x (x > 27)
@@ -21,7 +21,7 @@ REQUIREMENTS
 
 
 INSTALLATION
-================
+============
 
   1. Extract the module to sites/all/modules or sites/xx/modules depending on
      whether or not you have a multisite installation.
@@ -29,7 +29,7 @@ INSTALLATION
 
 
 CONFIGURATION
-================
+=============
 
 The module's administration page is at admin/config/services/lagotto_services
 with additional role-based access permissions on the admin/people/permissions
@@ -40,7 +40,7 @@ the URL to this server on the configuration form.
 
 
 USAGE
-================
+=====
 
 There are no out-of-the-box visible elements provided in this module. Software
 must call one of the php API functions, of which the main ones are:
@@ -59,7 +59,7 @@ configuration page.
 
 
 AUTHORS
-================
+=======
 
 rivimey - https://www.drupal.org/u/rivimey
 nlisgo - https://www.drupal.org/u/nlisgo
