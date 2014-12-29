@@ -349,7 +349,7 @@ function lagotto_services_make_fetch_url($doi_list, $options = array()) {
 }
 
 /**
- * Convert a DOI into the minimal form '10.\d+/.+'.
+ * Convert a DOI into the minimal form '10\.\d+/.+'.
  *
  * Check that a DOI is not a URL or URI and appears valid, returning the
  * minimal form if possible or NULL.
@@ -407,13 +407,13 @@ function lagotto_services_sanitise_doi_cache($doi) {
  *    The Lagotto options array defining this request. It must be in this form:
  *       array('article' => lagotto_services_make_article_desc(...) );
  *    Can be NULL if there is no body to send.
- * @param bool $action
+ * @param string $action
  *    One of 'POST' (Add), 'PUT' (Update) or 'DELETE' (Delete).
  *
  * @return object
  *    The returned HTTP response object.
  */
-function lagotto_services_do_modify_request($base_url, $action, $article_info = NULL) {
+function lagotto_services_modify_request($base_url, $action, $article_info) {
   $auth64 = lagotto_services_make_auth_token();
   if (empty($auth64)) {
     watchdog('lagotto_services',
@@ -423,16 +423,16 @@ function lagotto_services_do_modify_request($base_url, $action, $article_info = 
   }
 
   // The successful API response differs for Add / Update. and the DOI should
-  // be in the URL for v4 Update.
+  // be in the URL for v4 update and delete.
   $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
   $success = 200;
   switch ($action) {
-    case 'PUT':
-      $success = 201;
-      break;
     case 'POST':
+      $success = 201;
       $url = $base_url;
       break;
+    case 'PUT':
+    case 'GET':
     case 'DELETE':
       break;
     default:
@@ -462,7 +462,7 @@ function lagotto_services_do_modify_request($base_url, $action, $article_info = 
         '%url' => $url,
         '%req' => $body,
         '%code' => $response->code,
-        '%msg' => $response->data,
+        '%msg' => $response->status_message,
       ), WATCHDOG_WARNING);
   }
   return $response;
@@ -523,17 +523,32 @@ function lagotto_services_remove_doi($doi, $options = array()) {
   $url = lagotto_services_service_url($options['post_api_version']);
 
   // If the DOI is already on the server we need to check for update.
-  $doi_on_server = lagotto_services_doi_exists($options);
+  $doi_on_server = lagotto_services_doi_exists($doi, $options);
   if (!empty($doi_on_server)) {
-    $response = lagotto_services_do_modify_request($url, 'DELETE');
-    return $response;
-  }
-  elseif (!$options['quiet']) {
+    $article_info = array('article' => array('doi' => $doi));
+    $response = lagotto_services_modify_request($url, 'DELETE', $article_info);
     watchdog('lagotto_services',
-      'DOI [%doi] does not exist on the Lagotto server. Deletion not performed.',
-      array('%doi' => $doi),
-      WATCHDOG_WARNING);
+      'DOI [%doi] deleted on Lagotto server. Status [%stat], [%err]',
+      array(
+        '%doi' => $doi,
+        '%stat' => $response->status_message,
+        '%err' => $response->code,
+      ),
+      WATCHDOG_INFO);
   }
+  else {
+    if (!$options['quiet']) {
+      watchdog('lagotto_services',
+        'DOI [%doi] does not exist on the Lagotto server. Deletion not performed.',
+        array('%doi' => $doi),
+        WATCHDOG_WARNING);
+    }
+    $response = new stdClass();
+    $response->code = 204;
+    $response->options = $options;
+    $response->status_message = 'DOI does not exist';
+  }
+  return $response;
 }
 
 /**
@@ -583,33 +598,60 @@ function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
   $url = lagotto_services_service_url($options['post_api_version']);
 
   // If the DOI is already on the server we need to check for update.
-  $doi_on_server = lagotto_services_doi_exists($options);
+  $doi_on_server = lagotto_services_doi_exists($doi, $options);
   if (empty($doi_on_server)) {
     // Send the addition request.
-    $response = lagotto_services_do_modify_request($url, 'POST', $article_desc);
-    return $response;
+    $response = lagotto_services_modify_request($url, 'POST', $article_desc);
+    watchdog('lagotto_services',
+      'DOI [%doi] added on Lagotto server. Status [%stat], [%err]',
+      array(
+        '%doi' => $doi,
+        '%stat' => $response->status_message,
+        '%err' => $response->code,
+      ),
+      WATCHDOG_INFO);
   }
   elseif ($options['autoupdate']) {
     // Looking up the DOI succeeded and we have autoupdate set.
     // See if the returned info differs and update if needed.
-    $record_date = strtotime($doi_on_server['publication_date']);
+    $record_date = lagotto_services_issue_date($doi_on_server);
     $same_date = (date('Y-m-d', $record_date) == date('Y-m-d', $date));
     $same_title = ($doi_on_server['title'] == $title);
 
-    if (!($same_date && $same_title)) {
-      $response = lagotto_services_do_modify_request($url, 'PUT', $article_desc);
-      return $response;
+    if (!($same_date || $same_title)) {
+      $response = lagotto_services_modify_request($url, 'PUT', $article_desc);
+      watchdog('lagotto_services',
+        'DOI [%doi] updated on Lagotto server. Status [%stat], [%err]',
+        array(
+          '%doi' => $doi,
+          '%stat' => $response->status_message,
+          '%err' => $response->code,
+        ),
+        WATCHDOG_INFO);
     }
-    return NULL;
+    else {
+      $response = new stdClass();
+      $response->code = 202;
+      $response->options = $options;
+      $response->status_message = 'DOI update not required';
+    }
   }
-  elseif (!$options['quiet']) {
-    watchdog('lagotto_services',
-      'DOI [%doi] already exists on the ALM server',
-      array(
-        '%doi' => $doi,
-      ), WATCHDOG_WARNING);
-    return NULL;
+  else {
+    if (!$options['quiet']) {
+      watchdog('lagotto_services',
+        'DOI [%doi] already exists on the Lagotto server',
+        array(
+          '%doi' => $doi,
+        ), WATCHDOG_WARNING);
+    }
+    $response = new stdClass();
+    $response->code = 200;
+    $response->options = $options;
+    $response->status_message = 'DOI exists';
   }
+
+  return $response;
+
 }
 
 /**
@@ -635,12 +677,12 @@ function lagotto_services_doi_exists($doi, $options = array()) {
   $options = array_merge($options, $override_options);
 
   $lookup = lagotto_services_fetch_doi($doi, $options);
-  if (!empty($lookup) && $lookup->code == 200) {
-    $lookup_data = json_decode($lookup->data, TRUE);
-    return reset($lookup_data);
+  $record = lagotto_services_records($lookup);
+  if (empty($record)) {
+    return NULL;
   }
   else {
-    return NULL;
+    return $record[0];
   }
 }
 
@@ -705,20 +747,74 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
     $response = drupal_http_request($url, $http_request);
   }
   else {
+    watchdog('lagotto_services',
+      'DOI request failed: URL could not be constructed.',
+      WATCHDOG_ERROR);
     $response = new stdClass();
     $response->code = 500;
-    $response->data = "Invalid service URL supplied";
+    $response->options = $options;
+    $response->status_message = "Invalid service URL supplied";
   }
 
   // Evaluate request response.
-  if (!$options['quiet'] && $response->code != 200) {
-    watchdog('lagotto_services', 'Remote record request [%req] failed code [%code] with message [%msg]',
+  if (!$options['quiet'] && (empty($response) || $response->code != 200)) {
+    watchdog('lagotto_services',
+      'Remote record request [%req] failed code [%code] with message [%msg]',
       array(
         '%req' => $url,
         '%code' => $response->code,
-        '%msg' => $response->data,
-      ), WATCHDOG_WARNING);
+        '%msg' => $response->status_message,
+      ),
+      WATCHDOG_WARNING);
   }
 
   return $response;
+}
+
+/**
+ * API: Return an array of doi records from a server response.
+ *
+ * Use this to easily access the server response data from the return value
+ * of fetch or add doi calls. You either get an empty array or an array of
+ * the returned articles.
+ *
+ * @param stdClass $reply
+ *   The response object as returned from lagotto_services_fetch_doi() et al.
+ * @param int $success
+ *   The expected successful return code; set to 0 to disable checking for
+ *   return codes, or to e.g. 201 or 202 for alternate codes.
+ *
+ * @return array
+ *   The returned data as an indexed array.
+ */
+function lagotto_services_records($reply, $success = 200) {
+  $records = array();
+  if (!empty($reply) && !empty($reply->data)) {
+    if (0 == $success || $reply->code == $success) {
+      $json = json_decode($reply->data, TRUE);
+      if (!empty($json) && !empty($json['data'])) {
+        $records = $json['data'];
+      }
+    }
+  }
+  return $records;
+}
+
+/**
+ * API: Return a php date value from the issue date in a return doi record.
+ *
+ * @param array $record
+ *    The record for one doi entry.
+ *
+ * @return int
+ *    The result of strtotime() on the first 'issued' date entry in the record.
+ */
+function lagotto_services_issue_date($record) {
+  $d = $record['issued']['date-parts'][0];
+  if (!empty($d)) {
+    return strtotime($d[0] . '-' . $d[1] . '-' . $d[2]);
+  }
+  else {
+    return NULL;
+  }
 }
