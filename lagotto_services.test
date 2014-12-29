@@ -46,19 +46,19 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $clean_doi = lagotto_services_sanitise_doi($doi);
     $this->assertFalse($clean_doi, t('The input string is not a DOI so should get empty return.'));
 
-    $doi = 'http://dx.doi.org/10.7554/jnl.01086';
+    $doi = 'http://dx.doi.org/10.7554/eLife.01086';
     $clean_doi = lagotto_services_sanitise_doi($doi);
-    $this->assertEqual($clean_doi, '10.7554/jnl.01086', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+    $this->assertEqual($clean_doi, '10.7554/eLife.01086', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
 
-    $doi = 'http://dx.doi.org/10.7554/jnl.01086.003';
+    $doi = 'http://dx.doi.org/10.7554/eLife.01086.003';
     $clean_doi = lagotto_services_sanitise_doi($doi);
-    $this->assertEqual($clean_doi, '10.7554/jnl.01086.003', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+    $this->assertEqual($clean_doi, '10.7554/eLife.01086.003', t('"http://dx.doi.org/" should be removed from the beginning of the DOI string.'));
 
-    $doi = 'https://dx.doi.org/10.7554/jnl.01086.003';
+    $doi = 'https://dx.doi.org/10.7554/eLife.01086.003';
     $clean_doi = lagotto_services_sanitise_doi($doi);
-    $this->assertEqual($clean_doi, '10.7554/jnl.01086.003', t('"https://dx.doi.org/" should be removed from the beginning of the DOI string.'));
+    $this->assertEqual($clean_doi, '10.7554/eLife.01086.003', t('"https://dx.doi.org/" should be removed from the beginning of the DOI string.'));
 
-    $doi = '10.7554/jnl.01086';
+    $doi = '10.7554/eLife.01086';
     $clean_doi = lagotto_services_sanitise_doi($doi);
     $this->assertEqual($doi, $clean_doi, t('DOI not prefixed by http://dx.doi.org or doi: should be the same after sanitisation.'));
 
@@ -70,14 +70,14 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $clean_doi = lagotto_services_sanitise_doi($doi);
     $this->assertEqual($doi, $clean_doi, t('DOI not prefixed by http://dx.doi.org or doi: should be the same after sanitisation.'));
 
-    $doi = 'doi:10.7554/jnl.01086-4';
+    $doi = 'doi:10.7554/eLife.01086-4';
     $clean_doi = lagotto_services_sanitise_doi($doi);
-    $this->assertEqual($clean_doi, '10.7554/jnl.01086-4', t('"doi:" should be removed from the beginning of the DOI string.'));
+    $this->assertEqual($clean_doi, '10.7554/eLife.01086-4', t('"doi:" should be removed from the beginning of the DOI string.'));
 
-    $doi = '10.7554/jnl.01087';
+    $doi = '10.7554/eLife.01087';
     $clean_dois = lagotto_services_sanitise_doi_cache($doi);
     $this->assertEqual(count($clean_dois), 10, 'DOI cached count should be 10.');
-    $this->assertNotNull($clean_dois['http://dx.doi.org/10.7554/jnl.01086'], t('Result for http://dx.doi.org/10.7554/jnl.01086 is still in cache.'));
+    $this->assertNotNull($clean_dois['http://dx.doi.org/10.7554/eLife.01086'], t('Result for http://dx.doi.org/10.7554/eLife.01086 is still in cache.'));
   }
 
   /**
@@ -103,31 +103,31 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
   public function testMakeFetchUrl() {
     $service_server = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
     $key = lagotto_services_service_key();
-    $doi = '10.7554/jnl.01087';
-    $expected_doi = '10.7554/jnl.01087';
+    $doi = '10.7554/eLife.01087';
+    $expected_doi = '10.7554/eLife.01087';
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi);
     $this->assertEqual($fetch_url, $expected_url,
-     t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
+      t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => FALSE));
     $this->assertEqual($fetch_url, $expected_url,
-     t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
+      t('Summary query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
     $this->assertEqual($fetch_url, $expected_url,
-     t('Detail query test: Got @url, rather than expected url', array('url' => $fetch_url)));
+      t('Detail query test: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $doi = '1054';
     $fetch_url = lagotto_services_make_fetch_url($doi, array('include_detail' => TRUE));
     $this->assertNull($fetch_url,
-    t('Not-a-DOI test: Got @url, rather than fail', array('url' => $fetch_url)));
+      t('Not-a-DOI test: Got @url, rather than fail', array('url' => $fetch_url)));
 
-    $doi = '10.7554/jnl.01087';
-    $expected_doi = '10.7554/jnl.01087';
+    $doi = '10.7554/eLife.01087';
+    $expected_doi = '10.7554/eLife.01087';
     $service_server = 'http://alm.plos.org';
     $options = array(
       'include_detail' => TRUE,
@@ -136,7 +136,7 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
     $this->assertEqual($fetch_url, $expected_url,
-     t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
+      t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $service_server = 'http://alm.plos.org';
     $options = array(
@@ -146,7 +146,7 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_doi . '&info=detail';
     $fetch_url = lagotto_services_make_fetch_url($doi, $options);
     $this->assertEqual($fetch_url, $expected_url,
-     t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
+      t('Set good URL: Got @url, rather than expected url', array('url' => $fetch_url)));
 
     $service_server = 'plos.org';
     $options = array(
@@ -165,14 +165,14 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $service_server = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
     $key = lagotto_services_service_key();
     $doi = array(
-      '10.7554/jnl.01087',
+      '10.7554/eLife.01087',
       '1054',
       'doi:10.361/sbifyus',
       NULL,
-      'https://dx.doi.org/10.7554/jnl.01086.003',
+      'https://dx.doi.org/10.7554/eLife.01086.003',
     );
 
-    $expected_dois = '10.7554/jnl.01087%2C10.361/sbifyus%2C10.7554/jnl.01086.003';
+    $expected_dois = '10.7554/eLife.01087%2C10.361/sbifyus%2C10.7554/eLife.01086.003';
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $expected_dois . '&info=summary';
     $fetch_url = lagotto_services_make_fetch_url($doi);
     $this->assertEqual($fetch_url, $expected_url,
@@ -230,15 +230,15 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     $admin_permissions = array(
       'access content',
       'administer nodes',
-      'administer lagotto services',
-      'create doi records',
-      'delete doi records',
-      'make doi requests',
+      LAGOTTO_SERVICES_PERM_CONFIG,
+      LAGOTTO_SERVICES_PERM_CREATE,
+      LAGOTTO_SERVICES_PERM_DELETE,
+      LAGOTTO_SERVICES_PERM_REQUEST,
     );
 
     $web_permissions = array(
       'access content',
-      'make doi requests',
+      LAGOTTO_SERVICES_PERM_REQUEST,
     );
 
     $this->adminUser = $this->drupalCreateUser($admin_permissions);
@@ -246,10 +246,10 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
 
     variable_set('lagotto_services_create_doi_enabled', TRUE);
     variable_set('lagotto_services_delete_doi_enabled', TRUE);
-    variable_set('lagotto_services_adminuser', 'tester');
-    variable_set('lagotto_services_adminpass', 'pass');
-    variable_set('lagotto_services_url', 'http://lagotto.example.org');
-    variable_set('lagotto_services_apikey', 'E4DDC0F3B36829BB30CFD2D104C4819865BC5C29487B');
+    variable_set('lagotto_services_adminuser', 'submit');
+    variable_set('lagotto_services_adminpass', 'elifeapi');
+    variable_set('lagotto_services_url', 'http://lagotto.svr.elifesciences.org');
+    variable_set('lagotto_services_apikey', 'e8SStBFnRUgwxsbGxnMM');
   }
 
   /**
@@ -263,7 +263,7 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     $this->assertNull($fetch_url,
       t('Not-a-DOI test: Got @url, rather than expected fail', array('url' => $fetch_url)));
 
-    $doi = '10.7554/jnl.01087';
+    $doi = '10.7554/eLife.01087';
     $service_server = 'http://alm.plos.org';
     variable_set('lagotto_services_url', $service_server);
     $expected_url = $service_server . '/api/v5/articles?api_key=' . $key . '&type=doi&ids=' . $doi . '&info=detail';
@@ -292,74 +292,163 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     $service_url = lagotto_services_service_url();
     $service_url_structure = $service_url . '?api_key=[API_KEY]&type=doi&ids=[DOI]&info=[INCLUDE_DETAIL]';
 
-    $article_doi = '10.7554/jnl.01086';
+    $article_doi = '10.7554/eLife.01086';
     $article_title = 'Essential yet limited role for CCR2+ inflammatory monocytes during Mycobacterium tuberculosis-specific T cell priming';
     $article_date = strtotime('2013-11-12');
     $api_key = lagotto_services_service_key();
     $fetch_url = lagotto_services_make_fetch_url($article_doi);
     $fetch_url_check = $service_url . '?api_key=' . $api_key . '&type=doi&ids=' . str_replace('%2F', '/', rawurlencode($article_doi)) . '&info=summary';
-    $this->assertTrue(strpos($fetch_url, $service_url) === 0,
-      t('Fetch URL should be prefixed by service URL: @service_url', array('@service_url' => $service_url)));
-    $this->assertEqual($fetch_url, $fetch_url_check,
-      t('Fetch URL should have the structure: @service_url', array('@service_url' => $service_url_structure)));
 
-    $record = lagotto_services_fetch_doi($article_doi, array('include_detail' => TRUE, 'quiet' => TRUE));
-    $this->assertNotNull($record, t('Expect a response from the Lagotto server.'));
-    $this->assertEqual($record->code, 200, t('Status code should be 200 from the Lagotto server.'));
+    $this->assertTrue(strpos($fetch_url, $service_url) === 0,
+      t('Fetch URL: should be prefixed by service URL: @service_url',
+        array('@service_url' => $service_url)));
+    $this->assertEqual($fetch_url, $fetch_url_check,
+      t('Fetch URL: @fetch_url should have the structure: @service_url',
+        array(
+          '@service_url' => $service_url_structure,
+          '@fetch_url' => $fetch_url,
+        )
+      )
+    );
+
+    $record = lagotto_services_fetch_doi($article_doi,
+      array(
+        'include_detail' => TRUE,
+        'quiet' => TRUE
+      ));
+    $this->assertNotNull($record,
+      t('Fetch DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($record->code, 200,
+      t('Fetch DOI: Status code should be 200 from the Lagotto server. Got [@resp]',
+        array('@resp' => $record->code)));
+    $record_doi = lagotto_services_records($record, 0);
+    $this->assertNotNull($record,
+      t('records() returned null for fetch.'));
+    $record_doi = reset($record_doi);
 
     $record_json = json_decode($record->data, TRUE);
-    $record_doi = $record_json[0];
-    $this->assertEqual($record_doi['doi'], $article_doi,
-      t('DOI returned from query should be same as requested.'));
-
-    $this->assertEqual($record_doi['title'], $article_title,
-      t('Title returned should be same as on Drupal site.'));
-
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date),
-      t('Publication date on the ALM server should be the same as that stored locally.'));
-
-    $this->assertTrue(($record_doi['citations'] >= 1),
-      t('Expect to see at least 1 citation for this DOI.'));
+    $this->assertNull($record_json['error'],
+      t('JSON Decode Fetch: fetch doi returned error state: @resp',
+        array('@resp' => $record_json['error'])));
+    $this->assertEqual(
+      $record_doi['doi'],
+      $article_doi,
+      t('JSON Decode Fetch: DOI [@doi] returned from query should be same as requested.',
+        array('@doi' => $record_doi['doi'])));
+    $this->assertEqual(
+      $record_doi['title'],
+      $article_title,
+      t('JSON Decode Fetch: Title [@title] returned should be same as on Drupal site.',
+        array('@title' => $record_doi['title'])));
+    $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
+    $d2 = date('Y-m-d', $article_date);
+    $this->assertEqual($d1, $d2,
+      t('JSON Decode Fetch: Publication date on the Lagotto server @d1 should match that submitted on DOI update @d2.',
+        array('@d1' => $d1, '@d2' => $d2))
+    );
+    $this->assertTrue(($record_doi['viewed'] >= 10),
+      t('JSON Decode Fetch: Expect to see at least 10 views for this DOI.'));
+    $this->assertTrue(($record_doi['canonical_url'] >= ""),
+      t('JSON Decode Fetch: Expect to see a canonical url for this DOI.'));
+    $this->assertTrue((count($record_doi['sources']) >= 4),
+      t('JSON Decode Fetch: Expect to see at least 4 sources listed.'));
   }
 
   /**
-   * Check for DOI POST/PUT/DELETE api method.
+   * Check for DOI POST/PUT/DELETE api methods.
    */
   public function testPostDoi() {
     $this->drupalLogin($this->adminUser);
+
     // This should be an unused DOI.
-    $article_doi = '10.7554/jnl.99004';
-    $article_date = strtotime('2013-11-15');
+    $article_doi = '10.7554/eLife.99009';
+    $article_date = strtotime('2014-12-25');
     $article_title = 'Test Title';
-    lagotto_services_remove_doi($article_doi, TRUE);
+    $response = lagotto_services_remove_doi($article_doi, array('quiet' => TRUE));
+    $this->assertNotNull($response, t('Remove DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 204, t('Remove DOI: Response from server should be 200 for DOI removal.'));
+
+    // Test adding a new record.
     $response = lagotto_services_add_doi($article_doi, $article_date, $article_title);
+    $this->assertNotNull($response, t('Add DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 201, t('Add DOI: Response from server should be 201 for DOI creation.'));
 
-    $this->assertNotNull($response, t('Expect a response from the Lagotto server.'));
-    $this->assertEqual($response->code, 201, t('Response from server should be 201 for DOI creation.'));
-
-    $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
-    $this->assertNotNull($record, t('Expect a response from the Lagotto server.'));
-    $this->assertEqual($record->code, 200, t('Response from server should be 200 for DOI lookup.'));
+    // Check that the stored record matches what we expect.
+    $record = lagotto_services_fetch_doi($article_doi, array(
+      'include_detail' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($record, t('Fetch DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($record->code, 200, t('Fetch DOI: Response from server should be 200 for DOI lookup.'));
 
     $record_json = json_decode($record->data, TRUE);
-    $record_doi = $record_json[0];
-    $this->assertEqual($record_doi['title'], $article_title, t('Title returned should be same as on submitted on DOI creation.'));
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date), t('Publication date on the Lagotto server should be the same as that submitted on DOI creation.'));
+    $this->assertNull($record_json['error'],
+      t('JSON Decode Fetch: fetch doi returned error state: @resp',
+        array('@resp' => $record_json['error'])));
+    $record_doi = $record_json['data'][0];
+    $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
+    $d2 = date('Y-m-d', $article_date);
+    $this->assertEqual($record_doi['title'], $article_title, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
+      array('@t1' => $record_doi['title'], '@t2' => $article_title)));
+    $this->assertEqual($d1, $d2,
+      t('Publication date on the Lagotto server @d1 should match that submitted on DOI update @d2.',
+        array('@d1' => $d1, '@d2' => $d2))
+    );
 
-    $article_date_new = strtotime('2013-11-17');
+    // Test updating an existing record.
+    $article_date_new = strtotime('2014-12-26');
     $article_title_new = 'Test Title new';
-    $response = lagotto_services_add_doi($article_doi, $article_date_new, $article_title_new, TRUE);
-    $this->assertNotNull($response, t('Expect a response from the Lagotto server.'));
-    $this->assertEqual($response->code, 200, t('Response from server should be 200 for DOI update.'));
+    $response = lagotto_services_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 200, t('Update DOI: Response from server should be 200 for DOI update.'));
 
-    $record = lagotto_services_fetch_doi($article_doi, array('include_history' => TRUE, 'quiet' => TRUE));
-
+    // Check that the stored record matches what we expect.
+    $record = lagotto_services_fetch_doi($article_doi, array(
+      'include_detail' => TRUE,
+      'quiet' => FALSE
+    ));
     $record_json = json_decode($record->data, TRUE);
-    $record_doi = $record_json[0];
-    $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned should be same as on submitted on DOI update.'));
-    $this->assertEqual(date('Y-m-d', strtotime($record_doi['publication_date'])), date('Y-m-d', $article_date_new), t('Publication date on the Lagotto server should be the same as that submitted on DOI update.'));
+    $this->assertNull($record_json['error'],
+      t('JSON Decode Fetch: fetch doi returned error state: @resp',
+        array('@resp' => $record_json['error'])));
+    $record_doi = $record_json['data'][0];
+    $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
+    $d2 = date('Y-m-d', $article_date_new);
+    $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
+      array('@t1' => $record_doi['title'], '@t2' => $article_title_new)));
+    $this->assertEqual($d1, $d2, t('Publication date on the Lagotto server @d1 should be the same as that submitted on DOI update @d2.',
+      array('@d1' => $d1, '@d2' => $d2)));
 
-    // Cleanup of unused DOI.
-    lagotto_services_remove_doi($article_doi);
+    // Test updating an existing record with the same info.
+    $article_date_new = strtotime('2014-12-26');
+    $article_title_new = 'Test Title new';
+    $response = lagotto_services_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 202,
+      t('Update DOI: Response should be 202 for duplicate DOI update, got @code.',
+      array('@code' => $response->code)));
+
+    // Test updating an existing record, no autoupdate.
+    $article_date_new = strtotime('2014-12-26');
+    $article_title_new = 'Test Title new';
+    $response = lagotto_services_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => FALSE,
+      'quiet' => TRUE,
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 200,
+      t('Update DOI: Response from server should be 200 for DOI update, got @code.',
+      array('@code' => $response->code)));
+
+    // Cleanup of test DOI.
+    $response = lagotto_services_remove_doi($article_doi, array('quiet' => FALSE));
+    $this->assertNotNull($response, t('Delete DOI: Expect a response for the Lagotto server.'));
+    $this->assertEqual($response->code, 200, t('Delete DOI: Server Response should be 200 for DOI delete.'));
   }
 }
