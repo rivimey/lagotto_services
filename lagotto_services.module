@@ -16,6 +16,11 @@ define('LAGOTTO_SERVICES_API_POST', 4);
 define('LAGOTTO_SERVICES_DEFAULT_DOMAIN', 'http://alm.plos.org');
 define('LAGOTTO_SERVICES_DEFAULT_KEY', '');
 
+define('LAGOTTO_SERVICES_PERM_CONFIG', 'administer lagotto services');
+define('LAGOTTO_SERVICES_PERM_CREATE', 'create doi records');
+define('LAGOTTO_SERVICES_PERM_DELETE', 'delete doi records');
+define('LAGOTTO_SERVICES_PERM_REQUEST', 'make doi requests');
+
 /**
  * Implements hook_help().
  */
@@ -62,19 +67,19 @@ function lagotto_services_help($path, $arg) {
  */
 function lagotto_services_permission() {
   return array(
-    'administer lagotto services' => array(
+    LAGOTTO_SERVICES_PERM_CONFIG => array(
       'title' => t('Administer Lagotto Services'),
       'description' => t('Administer the Lagotto server configuration.'),
     ),
-    'create doi records' => array(
+    LAGOTTO_SERVICES_PERM_CREATE => array(
       'title' => t('Create DOIs on the Lagotto Server'),
       'description' => t('Add new DOIs to the Lagotto server (requires admin configuration).'),
     ),
-    'delete doi records' => array(
+    LAGOTTO_SERVICES_PERM_DELETE => array(
       'title' => t('Delete DOIs on the Lagotto Server'),
       'description' => t('Delete DOIs on the Lagotto server (requires admin configuration).'),
     ),
-    'make doi requests' => array(
+    LAGOTTO_SERVICES_PERM_REQUEST => array(
       'title' => t('Make DOI requests'),
       'description' => t('Request information about individual DOIs from the Lagotto server.'),
     ),
@@ -89,7 +94,7 @@ function lagotto_services_menu() {
   $items['admin/config/services/lagotto_services'] = array(
     'title' => 'Lagotto Services',
     'description' => 'Provides configuration options for Lagotto Services.',
-    'access arguments' => array('administer lagotto services'),
+    'access arguments' => array(LAGOTTO_SERVICES_PERM_CONFIG),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('lagotto_services_admin_settings'),
     'file' => 'lagotto_services.admin.inc',
@@ -108,7 +113,7 @@ function lagotto_services_menu() {
  */
 function lagotto_services_add_doi_enabled() {
   $create_doi_config = variable_get('lagotto_services_create_doi_enabled', FALSE);
-  $enabled = $create_doi_config && user_access('create alm records');
+  $enabled = $create_doi_config && user_access(LAGOTTO_SERVICES_PERM_CREATE);
   return $enabled;
 }
 
@@ -123,7 +128,7 @@ function lagotto_services_add_doi_enabled() {
  */
 function lagotto_services_remove_doi_enabled() {
   $delete_doi_config = variable_get('lagotto_services_delete_doi_enabled', FALSE);
-  $enabled = $delete_doi_config && user_access('delete alm records');
+  $enabled = $delete_doi_config && user_access(LAGOTTO_SERVICES_PERM_DELETE);
   return $enabled;
 }
 
@@ -679,9 +684,11 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
 
   // Unlike the add & delete options, fetch doesn't change server state so
   // there's no need for a dediacated disable option.
-  $enabled = user_access('make doi requests');
+  $enabled = user_access(LAGOTTO_SERVICES_PERM_REQUEST);
   if (!$enabled) {
-    watchdog('lagotto_services', 'DOI request failed: permission denied', WATCHDOG_WARNING);
+    watchdog('lagotto_services',
+      'DOI request failed: permission denied',
+      WATCHDOG_WARNING);
     return NULL;
   }
 
