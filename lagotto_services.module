@@ -29,8 +29,7 @@ define('LAGOTTO_SERVICES_PERM_REQUEST', 'make doi requests');
  * @see lagotto_services_submit_remove_doi_enabled
  */
 function lagotto_services_submit_fetch_doi_enabled() {
-  $enabled = user_access(LAGOTTO_SERVICES_PERM_REQUEST);
-  return $enabled;
+  return user_access(LAGOTTO_SERVICES_PERM_REQUEST);
 }
 
 
@@ -444,7 +443,7 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
 
   // Unlike the add & delete options, fetch doesn't change server state so
   // there's no need for a dediacated disable option.
-  $enabled = user_access(LAGOTTO_SERVICES_PERM_REQUEST);
+  $enabled = lagotto_services_submit_fetch_doi_enabled();
   if (!$enabled) {
     watchdog('lagotto_services',
       'DOI request failed: permission denied',
