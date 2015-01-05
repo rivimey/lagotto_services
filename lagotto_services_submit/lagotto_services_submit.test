@@ -1,0 +1,221 @@
+<?php
+/**
+ * @file
+ * Test suites for the Lagotto Server service access module.
+ *
+ * @package lagotto_services
+ */
+
+/**
+ * Unit test suite for the lagotto_services module.
+ *
+ * @package lagotto_services
+ */
+class LagottoServicesSubmitUnitTestCase extends DrupalUnitTestCase {
+
+  /**
+   * Return information related to the test suite.
+   *
+   * @return array
+   *   Information about test
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Lagotto Services Submission module unit tests'),
+      'description' => t('Executes submission and removal test suite for the Lagotto services module'),
+      'group' => t('Lagotto'),
+    );
+  }
+
+  /**
+   * Enable module.
+   */
+  public function setUp() {
+    parent::setUp('lagotto_services_submit');
+  }
+
+  /**
+   * Check for the service url function.
+   */
+  public function testServiceUrl() {
+    $service_server = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
+
+    $service_url = lagotto_services_service_url();
+    $this->assertTrue(strpos($service_url, $service_server) === 0, 'Service url should be prefixed by ' . $service_server . '.');
+    $this->assertEqual($service_url, $service_server . '/api/v5/articles', t('Default service url should be /api/v5/articles.'));
+
+    $service_url = lagotto_services_service_url(4);
+    $this->assertEqual($service_url, $service_server . '/api/v4/articles', t('Service url should be amended to reflect the API version requested.'));
+
+    $service_url = lagotto_services_service_url(99);
+    $this->assertEqual($service_url, $service_server . '/api/v5/articles', t('When a valid API version is not provided /api/v5/articles should be returned.'));
+  }
+
+}
+
+/**
+ * Functional test suite for the lagotto_services module.
+ *
+ * @package lagotto_services
+ */
+class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
+
+  /**
+   * Representation of administrative user.
+   *
+   * @access protected
+   * @var object
+   */
+  protected $adminUser;
+
+  /**
+   * Representation of web user.
+   *
+   * @access protected
+   * @var object
+   */
+  protected $webUser;
+
+  /**
+   * Return information related to the test suite.
+   *
+   * @return array
+   *   Information about test
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Lagotto Services Submission module web tests'),
+      'description' => t('Executes submission and removal test suite for the Lagotto services module'),
+      'group' => t('Lagotto'),
+    );
+  }
+
+  /**
+   * Enable module and create user with specific permissions.
+   */
+  public function setUp() {
+    parent::setUp('lagotto_services_submit');
+
+    $admin_permissions = array(
+      'access content',
+      'administer nodes',
+      LAGOTTO_SERVICES_PERM_CONFIG,
+      LAGOTTO_SERVICES_PERM_CREATE,
+      LAGOTTO_SERVICES_PERM_DELETE,
+      LAGOTTO_SERVICES_PERM_REQUEST,
+    );
+
+    $web_permissions = array(
+      'access content',
+      LAGOTTO_SERVICES_PERM_REQUEST,
+    );
+
+    $this->adminUser = $this->drupalCreateUser($admin_permissions);
+    $this->webUser = $this->drupalCreateUser($web_permissions);
+
+    variable_set('lagotto_services_submit_add_doi_enabled', TRUE);
+    variable_set('lagotto_services_submit_remove_doi_enabled', TRUE);
+    variable_set('lagotto_services_adminuser', 'submit');
+    variable_set('lagotto_services_adminpass', 'elifeapi');
+    variable_set('lagotto_services_url', 'http://lagotto.svr.elifesciences.org');
+    variable_set('lagotto_services_apikey', 'e8SStBFnRUgwxsbGxnMM');
+  }
+
+  /**
+   * Check for DOI POST/PUT/DELETE api methods.
+   */
+  public function testPostDoi() {
+    $this->drupalLogin($this->adminUser);
+
+    // This should be an unused DOI.
+    $article_doi = '10.7554/eLife.99009';
+    $article_date = strtotime('2014-12-25');
+    $article_title = 'Test Title';
+    $response = lagotto_services_submit_remove_doi($article_doi, array('quiet' => TRUE));
+    $this->assertNotNull($response, t('Remove DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 204, t('Remove DOI: Response from server should be 200 for DOI removal.'));
+
+    // Test adding a new record.
+    $response = lagotto_services_submit_add_doi($article_doi, $article_date, $article_title);
+    $this->assertNotNull($response, t('Add DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 201, t('Add DOI: Response from server should be 201 for DOI creation.'));
+
+    // Check that the stored record matches what we expect.
+    $record = lagotto_services_fetch_doi($article_doi, array(
+      'include_detail' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($record, t('Fetch DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($record->code, 200, t('Fetch DOI: Response from server should be 200 for DOI lookup.'));
+
+    $record_json = json_decode($record->data, TRUE);
+    $this->assertNull($record_json['error'],
+      t('JSON Decode Fetch: fetch doi returned error state: @resp',
+        array('@resp' => $record_json['error'])));
+    $record_doi = $record_json['data'][0];
+    $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
+    $d2 = date('Y-m-d', $article_date);
+    $this->assertEqual($record_doi['title'], $article_title, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
+      array('@t1' => $record_doi['title'], '@t2' => $article_title)));
+    $this->assertEqual($d1, $d2,
+      t('Publication date on the Lagotto server @d1 should match that submitted on DOI update @d2.',
+        array('@d1' => $d1, '@d2' => $d2))
+    );
+
+    // Test updating an existing record.
+    $article_date_new = strtotime('2014-12-26');
+    $article_title_new = 'Test Title new';
+    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 200, t('Update DOI: Response from server should be 200 for DOI update.'));
+
+    // Check that the stored record matches what we expect.
+    $record = lagotto_services_fetch_doi($article_doi, array(
+      'include_detail' => TRUE,
+      'quiet' => FALSE
+    ));
+    $record_json = json_decode($record->data, TRUE);
+    $this->assertNull($record_json['error'],
+      t('JSON Decode Fetch: fetch doi returned error state: @resp',
+        array('@resp' => $record_json['error'])));
+    $record_doi = $record_json['data'][0];
+    $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
+    $d2 = date('Y-m-d', $article_date_new);
+    $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
+      array('@t1' => $record_doi['title'], '@t2' => $article_title_new)));
+    $this->assertEqual($d1, $d2, t('Publication date on the Lagotto server @d1 should be the same as that submitted on DOI update @d2.',
+      array('@d1' => $d1, '@d2' => $d2)));
+
+    // Test updating an existing record with the same info.
+    $article_date_new = strtotime('2014-12-26');
+    $article_title_new = 'Test Title new';
+    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => TRUE,
+      'quiet' => FALSE
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 202,
+      t('Update DOI: Response should be 202 for duplicate DOI update, got @code.',
+      array('@code' => $response->code)));
+
+    // Test updating an existing record, no autoupdate.
+    $article_date_new = strtotime('2014-12-26');
+    $article_title_new = 'Test Title new';
+    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
+      'autoupdate' => FALSE,
+      'quiet' => TRUE,
+    ));
+    $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($response->code, 200,
+      t('Update DOI: Response from server should be 200 for DOI update, got @code.',
+      array('@code' => $response->code)));
+
+    // Cleanup of test DOI.
+    $response = lagotto_services_submit_remove_doi($article_doi, array('quiet' => FALSE));
+    $this->assertNotNull($response, t('Delete DOI: Expect a response for the Lagotto server.'));
+    $this->assertEqual($response->code, 200, t('Delete DOI: Server Response should be 200 for DOI delete.'));
+  }
+}

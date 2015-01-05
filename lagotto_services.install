@@ -8,12 +8,8 @@
  * Implements hook_uninstall().
  */
 function lagotto_services_uninstall() {
-  variable_del('lagotto_services_create_doi_enabled');
-  variable_del('lagotto_services_delete_doi_enabled');
   variable_del('lagotto_services_url');
   variable_del('lagotto_services_apikey');
-  variable_del('lagotto_services_adminuser');
-  variable_del('lagotto_services_adminpass');
 }
 
 /**
@@ -26,9 +22,9 @@ function lagotto_services_requirements($phase) {
       $t = get_t();
 
       $server = lagotto_services_service_host();
-      $creds = lagotto_services_service_creds();
-      $create_doi_config = variable_get('lagotto_services_create_doi_enabled', FALSE);
-      $delete_doi_config = variable_get('lagotto_services_delete_doi_enabled', FALSE);
+      $creds = lagotto_services_submit_service_creds();
+      $create_doi_config = variable_get('lagotto_services_submit_add_doi_enabled', FALSE);
+      $delete_doi_config = variable_get('lagotto_services_submit_remove_doi_enabled', FALSE);
       $want_write_access = ($create_doi_config || $delete_doi_config);
       $have_admin_creds = (!empty($creds['user']) && !empty($creds['pass']));
 

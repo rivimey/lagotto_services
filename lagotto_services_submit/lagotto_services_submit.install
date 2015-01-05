@@ -1,0 +1,76 @@
+<?php
+/**
+ * @file
+ * Uninstall and Requirements hooks for the lagotto_services_submit module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function lagotto_services_submit_uninstall() {
+  variable_del('lagotto_services_submit_add_doi_enabled');
+  variable_del('lagotto_services_submit_remove_doi_enabled');
+  variable_del('lagotto_services_adminuser');
+  variable_del('lagotto_services_adminpass');
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function lagotto_services_submit_requirements($phase) {
+  $requirements = array();
+  switch ($phase) {
+    case 'runtime':
+      $t = get_t();
+      $config_ok = TRUE;
+      $lgt_requirements = array(
+        'title' => $t('Lagotto Services Submit module'),
+      );
+      // Some message snippets to construct the final message from.
+      $description = array();
+
+      if (!module_exists('lagotto_services')) {
+        $description[] = $t(
+          'The lagotto_services module must be enabled if lagotto_services_submit is enabled.'
+        );
+        $config_ok = FALSE;
+      }
+      else {
+        $creds = lagotto_services_submit_service_creds();
+        $create_doi_config = variable_get('lagotto_services_submit_add_doi_enabled', FALSE);
+        $delete_doi_config = variable_get('lagotto_services_submit_remove_doi_enabled', FALSE);
+        $want_write_access = ($create_doi_config || $delete_doi_config);
+        $have_admin_creds = (!empty($creds['user']) && !empty($creds['pass']));
+
+        // To enable create or delete DOI, you need a configured admin account.
+        if ($want_write_access ^ $have_admin_creds) {
+          $description[] = $t(
+            'Administration account details must be set for create or delete to work.'
+          );
+          $config_ok = FALSE;
+        }
+      }
+
+      if ($config_ok) {
+        $lgt_requirements['description'] = '';
+        $lgt_requirements['severity'] = REQUIREMENT_OK;
+        $lgt_requirements['value'] = $t('Configured');
+      }
+      else {
+        array_unshift($description,
+          $t('The Lagotto Services Submit module has not been correctly configured. '));
+        $description[] = $t(
+          'Please modify the settings on the <a href="@url">lagotto_services settings page</a>.',
+          array('@url' => url('admin/config/services/lagotto_services'))
+        );
+
+        $lgt_requirements['description'] = implode(' ', $description);
+        $lgt_requirements['severity'] = REQUIREMENT_ERROR;
+        $lgt_requirements['value'] = $t('Not configured');
+      }
+      $requirements['lagotto_services_submit'] = $lgt_requirements;
+      break;
+  }
+
+  return $requirements;
+}

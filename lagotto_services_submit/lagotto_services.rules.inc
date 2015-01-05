@@ -69,7 +69,7 @@ function lagotto_services_rules_action_info() {
  * Submit request to the ALM server to add/update article info.
  */
 function lagotto_services_rules_doi_update($doi, $date, $title, $autoupdate) {
-  $data = lagotto_services_add_doi($doi, $date, $title, $autoupdate);
+  $data = lagotto_services_submit_add_doi($doi, $date, $title, $autoupdate);
 
   return array('data_returned' => var_export($data, TRUE));
 }
@@ -78,7 +78,7 @@ function lagotto_services_rules_doi_update($doi, $date, $title, $autoupdate) {
  * Submit request to the ALM server to delete article info.
  */
 function lagotto_services_rules_doi_delete($doi) {
-  $data = lagotto_services_remove_doi($doi);
+  $data = lagotto_services_submit_remove_doi($doi);
 
   return array('data_returned' => var_export($data, TRUE));
 }

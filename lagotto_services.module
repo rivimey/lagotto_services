@@ -17,9 +17,69 @@ define('LAGOTTO_SERVICES_DEFAULT_DOMAIN', 'http://alm.plos.org');
 define('LAGOTTO_SERVICES_DEFAULT_KEY', '');
 
 define('LAGOTTO_SERVICES_PERM_CONFIG', 'administer lagotto services');
-define('LAGOTTO_SERVICES_PERM_CREATE', 'create doi records');
-define('LAGOTTO_SERVICES_PERM_DELETE', 'delete doi records');
 define('LAGOTTO_SERVICES_PERM_REQUEST', 'make doi requests');
+
+/**
+ * API: Return True if current session has permission to add DOIs to server.
+ *
+ * @return string
+ *   The server base URL as configured by the user, or the default.
+ *
+ * @see lagotto_services_submit_add_doi
+ * @see lagotto_services_submit_remove_doi_enabled
+ */
+function lagotto_services_submit_fetch_doi_enabled() {
+  $enabled = user_access(LAGOTTO_SERVICES_PERM_REQUEST);
+  return $enabled;
+}
+
+
+/**
+ * Internal function to get the README file for use in module Help.
+ *
+ * It is intended this function can be used by submodules.
+ *
+ * Call with:
+ *   $output = lagotto_services_admin_get_readme(__FILE__);
+ *
+ * @param string $modulefile
+ *   The pathname for a file in the same directory as the desired README.
+ *
+ * @return string
+ *   The returned README text, processed using Markdown if available.
+ */
+function lagotto_services_admin_get_readme($modulefile) {
+  $path = dirname($modulefile) . '/README.md';
+  if (file_exists($path)) {
+    $readme = file_get_contents($path);
+  }
+  else {
+    $path = dirname($modulefile) . '/README.txt';
+    if (file_exists($path)) {
+      $readme = file_get_contents($path);
+    }
+  }
+  if (!isset($readme)) {
+    return NULL;
+  }
+  if (module_exists('markdown')) {
+    $filters = module_invoke('markdown', 'filter_info');
+    $info = $filters['filter_markdown'];
+
+    if (function_exists($info['process callback'])) {
+      $function = $info['process callback'];
+      $output = filter_xss_admin($function($readme, NULL));
+    }
+    else {
+      $output = '<pre>' . check_plain($readme) . '</pre>';
+    }
+  }
+  else {
+    $output = '<pre>' . check_plain($readme) . '</pre>';
+  }
+
+  return $output;
+}
 
 /**
  * Implements hook_help().
@@ -27,34 +87,7 @@ define('LAGOTTO_SERVICES_PERM_REQUEST', 'make doi requests');
 function lagotto_services_help($path, $arg) {
   switch ($path) {
     case 'admin/help#lagotto_services':
-      $path = dirname(__FILE__) . '/README.md';
-      if (file_exists($path)) {
-        $readme = file_get_contents($path);
-      }
-      else {
-        $path = dirname(__FILE__) . '/README.txt';
-        if (file_exists($path)) {
-          $readme = file_get_contents($path);
-        }
-      }
-      if (!isset($readme)) {
-        return NULL;
-      }
-      if (module_exists('markdown')) {
-        $filters = module_invoke('markdown', 'filter_info');
-        $info = $filters['filter_markdown'];
-
-        if (function_exists($info['process callback'])) {
-          $function = $info['process callback'];
-          $output = filter_xss_admin($function($readme, NULL));
-        }
-        else {
-          $output = '<pre>' . check_plain($readme) . '</pre>';
-        }
-      }
-      else {
-        $output = '<pre>' . check_plain($readme) . '</pre>';
-      }
+      $output = lagotto_services_admin_get_readme(__FILE__);
       return $output;
 
     case 'admin/config/services/lagotto_services':
@@ -70,14 +103,6 @@ function lagotto_services_permission() {
     LAGOTTO_SERVICES_PERM_CONFIG => array(
       'title' => t('Administer Lagotto Services'),
       'description' => t('Administer the Lagotto server configuration.'),
-    ),
-    LAGOTTO_SERVICES_PERM_CREATE => array(
-      'title' => t('Create DOIs on the Lagotto Server'),
-      'description' => t('Add new DOIs to the Lagotto server (requires admin configuration).'),
-    ),
-    LAGOTTO_SERVICES_PERM_DELETE => array(
-      'title' => t('Delete DOIs on the Lagotto Server'),
-      'description' => t('Delete DOIs on the Lagotto server (requires admin configuration).'),
     ),
     LAGOTTO_SERVICES_PERM_REQUEST => array(
       'title' => t('Make DOI requests'),
@@ -103,68 +128,17 @@ function lagotto_services_menu() {
 }
 
 /**
- * API: Return True if current session has permission to add DOIs to server.
- *
- * @return string
- *   The server base URL as configured by the user, or the default.
- *
- * @see lagotto_services_add_doi
- * @see lagotto_services_remove_doi_enabled
- */
-function lagotto_services_add_doi_enabled() {
-  $create_doi_config = variable_get('lagotto_services_create_doi_enabled', FALSE);
-  $enabled = $create_doi_config && user_access(LAGOTTO_SERVICES_PERM_CREATE);
-  return $enabled;
-}
-
-/**
- * API: Return True if current session has permission to remove DOI from server.
- *
- * @return string
- *   The server base URL as configured by the user, or the default.
- *
- * @see lagotto_services_remove_doi
- * @see lagotto_services_add_doi_enabled
- */
-function lagotto_services_remove_doi_enabled() {
-  $delete_doi_config = variable_get('lagotto_services_delete_doi_enabled', FALSE);
-  $enabled = $delete_doi_config && user_access(LAGOTTO_SERVICES_PERM_DELETE);
-  return $enabled;
-}
-
-/**
  * API: Return the configured ALM service host (base URL).
  *
  * @return string
  *   The server base URL as configured by the user, or the default.
  *
  * @see lagotto_services_service_key
- * @see lagotto_services_service_creds
+ * @see lagotto_services_submit_service_creds
  */
 function lagotto_services_service_host() {
   $url = variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN);
   return $url;
-}
-
-/**
- * API: Return the configured ALM service administrator credentials.
- *
- * These credentials are only used to create or delete articles. Read
- * access requires the API key.
- *
- * @return array
- *   'user'  - the configured user name
- *   'pass'  - the configured password
- *
- * @see lagotto_services_service_host
- * @see lagotto_services_service_key
- * @see lagotto_services_add_doi
- * @see lagotto_services_remove_doi
- */
-function lagotto_services_service_creds() {
-  $user = variable_get('lagotto_services_adminuser', '');
-  $pass = variable_get('lagotto_services_adminpass', '');
-  return array('user' => $user, 'pass' => $pass);
 }
 
 /**
@@ -399,262 +373,6 @@ function lagotto_services_sanitise_doi_cache($doi) {
 }
 
 /**
- * Internal function to construct and send a PUT or POST request to the server.
- *
- * @param string $base_url
- *    The URL to use, to which the DOI will be added.
- * @param array $article_info
- *    The Lagotto options array defining this request. It must be in this form:
- *       array('article' => lagotto_services_make_article_desc(...) );
- *    Can be NULL if there is no body to send.
- * @param string $action
- *    One of 'POST' (Add), 'PUT' (Update) or 'DELETE' (Delete).
- *
- * @return object
- *    The returned HTTP response object.
- */
-function lagotto_services_modify_request($base_url, $action, $article_info) {
-  $auth64 = lagotto_services_make_auth_token();
-  if (empty($auth64)) {
-    watchdog('lagotto_services',
-      'DOI request failed: credentials not set',
-      WATCHDOG_ERROR);
-    return NULL;
-  }
-
-  // The successful API response differs for Add / Update. and the DOI should
-  // be in the URL for v4 update and delete.
-  $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
-  $success = 200;
-  switch ($action) {
-    case 'POST':
-      $success = 201;
-      $url = $base_url;
-      break;
-    case 'PUT':
-    case 'GET':
-    case 'DELETE':
-      break;
-    default:
-      watchdog('lagotto_services',
-        'DOI request failed: invalid action requested.',
-        WATCHDOG_ERROR);
-      return NULL;
-  }
-
-  $http_options = array(
-    'headers' => array(
-      'Content-Type' => 'application/json',
-      'Accept' => 'application/json',
-      'Authorization' => $auth64,
-    ),
-    'method' => $action,
-  );
-
-  $body = json_encode($article_info);
-  $http_options['data'] = $body;
-  $response = drupal_http_request($url, $http_options);
-
-  if (empty($response) || $response->code != $success) {
-    watchdog('lagotto_services',
-      'Remote DOI request to [%url] of [%req] failed code [%code] with message [%msg]',
-      array(
-        '%url' => $url,
-        '%req' => $body,
-        '%code' => $response->code,
-        '%msg' => $response->status_message,
-      ), WATCHDOG_WARNING);
-  }
-  return $response;
-}
-
-/**
- * Make an HTTP Basic auth token from the credentials defined in module config.
- *
- * @return null|string
- *   NULL if either the user or password is not set, or a base64 encoded
- *   token usable in the HTTP Authorization header.
- */
-function lagotto_services_make_auth_token() {
-  // Form the http basic authentication token for the api call.
-  $creds = lagotto_services_service_creds();
-  if (empty($creds['user']) || empty($creds['pass'])) {
-    return NULL;
-  }
-  $auth64 = base64_encode($creds['user'] . ':' . $creds['pass']);
-  return 'Basic ' . $auth64;
-}
-
-/**
- * API: Delete a record request using the ALM v4 api.
- *
- * @param string $doi
- *   The DOI of the article.
- * @param array $options
- *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key.
- *   'service_url' - override the url from lagotto_services_service_url.
- *   'fetch_api_version' - override the normal api for existence checks (e.g. '5').
- *   'post_api_version' - override the api version number (e.g. '4'). Use with care.
- *   'quiet' - don't log failed deletions when the initial lookup fails.
- *
- * @return array
- *   An associative array containing the response from the server or null if
- *   either drupal access is denied, the user and PW is unset or this facility
- *   is administratively disabled.
- */
-function lagotto_services_remove_doi($doi, $options = array()) {
-  $enabled = lagotto_services_remove_doi_enabled();
-  if (!$enabled) {
-    watchdog('lagotto_services',
-      'Delete DOI request failed: permission denied',
-      WATCHDOG_WARNING);
-    return NULL;
-  }
-
-  $default_options = array(
-    'include_detail' => FALSE,
-    'service_key' => NULL,
-    'service_url' => NULL,
-    'post_api_version' => LAGOTTO_SERVICES_API_POST,
-    'quiet' => FALSE,
-  );
-  $options = array_merge($default_options, $options);
-  $url = lagotto_services_service_url($options['post_api_version']);
-
-  // If the DOI is already on the server we need to check for update.
-  $doi_on_server = lagotto_services_doi_exists($doi, $options);
-  if (!empty($doi_on_server)) {
-    $article_info = array('article' => array('doi' => $doi));
-    $response = lagotto_services_modify_request($url, 'DELETE', $article_info);
-    watchdog('lagotto_services',
-      'DOI [%doi] deleted on Lagotto server. Status [%stat], [%err]',
-      array(
-        '%doi' => $doi,
-        '%stat' => $response->status_message,
-        '%err' => $response->code,
-      ),
-      WATCHDOG_INFO);
-  }
-  else {
-    if (!$options['quiet']) {
-      watchdog('lagotto_services',
-        'DOI [%doi] does not exist on the Lagotto server. Deletion not performed.',
-        array('%doi' => $doi),
-        WATCHDOG_WARNING);
-    }
-    $response = new stdClass();
-    $response->code = 204;
-    $response->options = $options;
-    $response->status_message = 'DOI does not exist';
-  }
-  return $response;
-}
-
-/**
- * API: Make a request using the ALM v4 api.
- *
- * To create a new record on the ALM server using the DOI and other details
- * provided.
- *
- * @param string $doi
- *   The DOI of the article.
- * @param string $date
- *   The publication date of the article (unix).
- * @param string $title
- *   The title of the article.
- * @param array $options
- *   'include_detail' - TRUE to include timeline info in the metrics.
- *   'service_key' - override the key from lagotto_services_service_key.
- *   'service_url' - override the url from lagotto_services_service_url.
- *   'fetch_api_version' - override the normal api for existence checks (e.g. '5').
- *   'post_api_version' - override the api version number (e.g. '4'). Use with care.
- *   'quiet' - don't log failed creations because DOI already exists.
- *   'autoupdate' - update if DOI exists on server.
- *
- * @return array|null
- *   Eithera an associative array containing the response from the server or
- *   NULL if either drupal access is denied, the user or PW is unset, the
- *   article was not updated (e.g. it was already there), or this function is
- *   administratively disabled.
- */
-function lagotto_services_add_doi($doi, $date, $title, $options = array()) {
-  $enabled = lagotto_services_add_doi_enabled();
-  if (!$enabled) {
-    watchdog('lagotto_services',
-      'Add DOI request failed: permission denied', WATCHDOG_ERROR);
-    return NULL;
-  }
-
-  $default_options = array(
-    'include_detail' => FALSE,
-    'post_api_version' => LAGOTTO_SERVICES_API_POST,
-    'autoupdate' => FALSE,
-    'quiet' => FALSE,
-  );
-  $options = array_merge($default_options, $options);
-
-  $article_desc = lagotto_services_make_article_desc($doi, $date, $title);
-  $url = lagotto_services_service_url($options['post_api_version']);
-
-  // If the DOI is already on the server we need to check for update.
-  $doi_on_server = lagotto_services_doi_exists($doi, $options);
-  if (empty($doi_on_server)) {
-    // Send the addition request.
-    $response = lagotto_services_modify_request($url, 'POST', $article_desc);
-    watchdog('lagotto_services',
-      'DOI [%doi] added on Lagotto server. Status [%stat], [%err]',
-      array(
-        '%doi' => $doi,
-        '%stat' => $response->status_message,
-        '%err' => $response->code,
-      ),
-      WATCHDOG_INFO);
-  }
-  elseif ($options['autoupdate']) {
-    // Looking up the DOI succeeded and we have autoupdate set.
-    // See if the returned info differs and update if needed.
-    $record_date = lagotto_services_issue_date($doi_on_server);
-    $same_date = (date('Y-m-d', $record_date) == date('Y-m-d', $date));
-    $same_title = ($doi_on_server['title'] == $title);
-
-    if (!($same_date || $same_title)) {
-      $response = lagotto_services_modify_request($url, 'PUT', $article_desc);
-      watchdog('lagotto_services',
-        'DOI [%doi] updated on Lagotto server. Status [%stat], [%err]',
-        array(
-          '%doi' => $doi,
-          '%stat' => $response->status_message,
-          '%err' => $response->code,
-        ),
-        WATCHDOG_INFO);
-    }
-    else {
-      $response = new stdClass();
-      $response->code = 202;
-      $response->options = $options;
-      $response->status_message = 'DOI update not required';
-    }
-  }
-  else {
-    if (!$options['quiet']) {
-      watchdog('lagotto_services',
-        'DOI [%doi] already exists on the Lagotto server',
-        array(
-          '%doi' => $doi,
-        ), WATCHDOG_WARNING);
-    }
-    $response = new stdClass();
-    $response->code = 200;
-    $response->options = $options;
-    $response->status_message = 'DOI exists';
-  }
-
-  return $response;
-
-}
-
-/**
  * API: Check for existence of the DOI.
  *
  * @param string $doi
@@ -711,7 +429,7 @@ function lagotto_services_doi_exists($doi, $options = array()) {
  *   A constructed object with 'code' 500 if the service URL is invalid.
  *
  * @see lagotto_services_make_fetch_url
- * @see lagotto_services_add_doi
+ * @see lagotto_services_submit_add_doi
  */
 function lagotto_services_fetch_doi($doi_list, $options = array()) {
   $default_options = array(
