@@ -2,5 +2,5 @@ name = Lagotto service API access
 description = This module enables access to the Lagotto service
 core = 7.x
 package = Services
-
+configure = admin/config/services/lagotto_services
 files[] = lagotto_services.test

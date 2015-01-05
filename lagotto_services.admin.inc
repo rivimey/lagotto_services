@@ -11,18 +11,19 @@ function lagotto_services_admin_settings() {
   $form = array();
   $form['settings'] = array(
     '#type' => 'vertical_tabs',
-    '#weight' => 50,
+    '#weight' => 0,
   );
 
   $form['serverinfo'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Server info'),
+    '#title' => t('Server setup'),
     '#group' => 'settings',
+    '#weight' => 0,
   );
 
   $form['serverinfo']['lagotto_services_url'] = array(
     '#type' => 'textfield',
-    '#title' => t('ALM Server URL'),
+    '#title' => t('Lagotto Server URL'),
     '#description' => t('The URL of the Lagotto Server (excluding /api/...).'),
     '#default_value' => variable_get('lagotto_services_url', LAGOTTO_SERVICES_DEFAULT_DOMAIN),
   );

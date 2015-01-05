@@ -127,7 +127,7 @@ function lagotto_services_menu() {
 }
 
 /**
- * API: Return the configured ALM service host (base URL).
+ * API: Return the configured Lagotto service host (base URL).
  *
  * @return string
  *   The server base URL as configured by the user, or the default.
@@ -141,7 +141,7 @@ function lagotto_services_service_host() {
 }
 
 /**
- * API: Return the configured ALM service URL.
+ * API: Return the configured Lagotto service URL.
  *
  * @param int $version
  *   API version number.
@@ -164,7 +164,7 @@ function lagotto_services_service_url($version = LAGOTTO_SERVICES_API_FETCH) {
 }
 
 /**
- * API: Return the configured ALM service API key.
+ * API: Return the configured Lagotto service API key.
  *
  * @return string
  *   The server key as configured by the user, or the default.
@@ -372,7 +372,10 @@ function lagotto_services_sanitise_doi_cache($doi) {
 }
 
 /**
- * API: Check for existence of the DOI.
+ * API: Check for existence of a single DOI.
+ *
+ * A wrapper function that makes it easier to call than the 'full' fetch doi.
+ * NB: the return value differs from the fetch call.
  *
  * @param string $doi
  *   The DOI for the article.
@@ -404,9 +407,9 @@ function lagotto_services_doi_exists($doi, $options = array()) {
 }
 
 /**
- * API: Do an article lookup request using the ALM v5 api.
+ * API: Do an article lookup request using the Lagotto v5 api.
  *
- * To find a record on the ALM server using the DOI, returning the details
+ * To find a record on the Lagotto server using the DOI, returning the details
  *
  * @param mixed $doi_list
  *   The DOI for the article, or an array of them. DOIs are sanitised and

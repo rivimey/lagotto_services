@@ -7,13 +7,13 @@
 /**
  * Implements hook_rules_action_info().
  */
-function lagotto_services_rules_action_info() {
+function lagotto_services_submit_rules_action_info() {
   $defaults = array(
-    'group' => t('Services'),
+    'group' => t('Lagotto'),
   );
 
   return array(
-    'lagotto_services_rules_doi_update' => $defaults + array(
+    'lagotto_services_submit_rules_doi_update' => $defaults + array(
       'parameter' => array(
         'doi' => array(
           'type' => 'text',
@@ -44,7 +44,7 @@ function lagotto_services_rules_action_info() {
       ),
       'label' => t('Submit article info to Lagotto server'),
     ),
-    'lagotto_services_rules_doi_delete' => $defaults + array(
+    'lagotto_services_submit_rules_doi_delete' => $defaults + array(
       'parameter' => array(
         'doi' => array(
           'type' => 'text',
@@ -66,18 +66,18 @@ function lagotto_services_rules_action_info() {
 }
 
 /**
- * Submit request to the ALM server to add/update article info.
+ * Submit request to the Lagotto server to add/update article info.
  */
-function lagotto_services_rules_doi_update($doi, $date, $title, $autoupdate) {
+function lagotto_services_submit_rules_doi_update($doi, $date, $title, $autoupdate) {
   $data = lagotto_services_submit_add_doi($doi, $date, $title, $autoupdate);
 
   return array('data_returned' => var_export($data, TRUE));
 }
 
 /**
- * Submit request to the ALM server to delete article info.
+ * Submit request to the Lagotto server to delete article info.
  */
-function lagotto_services_rules_doi_delete($doi) {
+function lagotto_services_submit_rules_doi_delete($doi) {
   $data = lagotto_services_submit_remove_doi($doi);
 
   return array('data_returned' => var_export($data, TRUE));

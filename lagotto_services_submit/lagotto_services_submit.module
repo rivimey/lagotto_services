@@ -35,6 +35,17 @@ function lagotto_services_submit_permission() {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function lagotto_services_submit_form_lagotto_services_admin_settings_alter(&$form, &$form_state, $form_id) {
+  include_once 'lagotto_services_submit.admin.inc';
+  $extras = lagotto_services_submit_admin_settings();
+  foreach($extras as $k => $v) {
+    $form[$k] = $v;
+  }
+}
+
+/**
  * API: Return True if current session has permission to add DOIs to server.
  *
  * @return string
@@ -65,7 +76,7 @@ function lagotto_services_submit_remove_doi_enabled() {
 }
 
 /**
- * API: Return the configured ALM service administrator credentials.
+ * API: Return the configured Lagotto service administrator credentials.
  *
  * These credentials are only used to create or delete articles. Read
  * access requires the API key.
@@ -173,7 +184,7 @@ function lagotto_services_submit_make_auth_token() {
 }
 
 /**
- * API: Delete a record request using the ALM v4 api.
+ * API: Delete a record request using the Lagotto v4 api.
  *
  * @param string $doi
  *   The DOI of the article.
@@ -239,9 +250,9 @@ function lagotto_services_submit_remove_doi($doi, $options = array()) {
 }
 
 /**
- * API: Make a request using the ALM v4 api.
+ * API: Make a request using the Lagotto v4 api.
  *
- * To create a new record on the ALM server using the DOI and other details
+ * To create a new record on the Lagotto server using the DOI and other details
  * provided.
  *
  * @param string $doi
