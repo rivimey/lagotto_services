@@ -201,7 +201,7 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (2).'));
 
-    // Test with no data
+    // Test with no data.
     $record = new stdClass();
     $record->code = 0;
     $record->data = NULL;
@@ -232,7 +232,7 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $record->code = 200;
     $record->headers = array(
       'content-type' => 'application/json; charset=utf-8',
-      'status' => '200 OK'
+      'status' => '200 OK',
     );
     $record->protocol = 'HTTP/1.1';
     $record->status_message = 'OK';
@@ -265,7 +265,7 @@ __EOD__;
         'doi' => '10.7554/eLife.01086',
         'title' => 'Essential yet limited',
         'issued' => array(
-          'date-parts' => array(0 => array(2013,11,12)),
+          'date-parts' => array(0 => array(2013, 11, 12)),
         ),
         'pmid' => 24220507,
         'pmcid' => 3820971,
@@ -427,7 +427,7 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
     $record = lagotto_services_fetch_doi($article_doi,
       array(
         'include_detail' => TRUE,
-        'quiet' => TRUE
+        'quiet' => TRUE,
       ));
     $this->assertNotNull($record,
       t('Fetch DOI: Expect a response from the Lagotto server.'));

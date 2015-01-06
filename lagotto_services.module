@@ -41,15 +41,15 @@ function lagotto_services_fetch_doi_enabled() {
  * Call with:
  *   $output = lagotto_services_admin_get_readme(__FILE__);
  *
+ * This code was lifted directly from:
+ *   Provide help text in the Drupal UI
+ *   <https://www.drupal.org/node/161085#hook_help>
+ *
  * @param string $modulefile
  *   The pathname for a file in the same directory as the desired README.
  *
  * @return string
  *   The returned README text, processed using Markdown if available.
- *
- * This code was lifted directly from:
- *   Provide help text in the Drupal UI
- *   <https://www.drupal.org/node/161085#hook_help>
  */
 function lagotto_services_admin_get_readme($modulefile) {
   $path = dirname($modulefile) . '/README.md';
@@ -156,7 +156,7 @@ function lagotto_services_service_host() {
  * @see lagotto_services_service_host
  */
 function lagotto_services_service_url($version = LAGOTTO_SERVICES_API_FETCH) {
-  $possible_versions = array( 3, 4, 5 );
+  $possible_versions = array(3, 4, 5);
   if (!in_array($version, $possible_versions)) {
     $version = LAGOTTO_SERVICES_API_FETCH;
   }
@@ -199,7 +199,7 @@ function lagotto_services_service_key() {
  *   'sources' - if present must be an array of names of data sources.
  *   'order_by' - The order of results:
  *                   'date' - use descending date,
- *                   'event' - by descending event count
+ *                   'event' - by descending event count.
  *
  * @return string|null
  *   A URL to be retrieved, or NULL if:
@@ -343,6 +343,7 @@ function lagotto_services_sanitise_doi_cache($doi) {
  * @param string $doi
  *   The DOI for the article.
  * @param array $options
+ *   Keys:
  *   'service_key' - override the key from lagotto_services_service_key
  *   'service_url' - override the url from lagotto_services_service_url
  *   'fetch_api_version' - override the normal api (e.g. '5').
@@ -378,6 +379,7 @@ function lagotto_services_doi_exists($doi, $options = array()) {
  *   The DOI for the article, or an array of them. DOIs are sanitised and
  *   invalid entries are ignored.
  * @param array $options
+ *   Keys:
  *   'include_detail' - TRUE to include timeline info in the metrics.
  *   'service_key' - override the key from lagotto_services_service_key
  *   'service_url' - override the url from lagotto_services_service_url
@@ -386,7 +388,7 @@ function lagotto_services_doi_exists($doi, $options = array()) {
  *   'sources' - if present, an array of source names to filter the results.
  *   'order_by' - The order of results:
  *     'date' - use descending date,
- *     'event' - by descending event count
+ *     'event' - by descending event count.
  *
  * @return object|NULL
  *   The response object from drupal_http_request()
@@ -461,7 +463,7 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
  * of fetch or add doi calls. You either get an empty array or an array of
  * the returned articles.
  *
- * @param stdClass $reply
+ * @param object $reply
  *   The response object as returned from lagotto_services_fetch_doi() et al.
  * @param int $success
  *   The expected successful return code; set to 0 to disable checking for
@@ -492,7 +494,7 @@ function lagotto_services_records($reply, $success = 200) {
  * @return int
  *    The result of strtotime() on the first 'issued' date entry in the record.
  */
-function lagotto_services_issue_date($record) {
+function lagotto_services_issue_date(array $record) {
   $d = $record['issued']['date-parts'][0];
   if (!empty($d)) {
     return strtotime($d[0] . '-' . $d[1] . '-' . $d[2]);
