@@ -182,6 +182,125 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $this->assertNull($fetch_url,
       t('Set bad URL array: Got @url, rather than expected null', array('url' => $fetch_url)));
   }
+
+  /**
+   * Test the lagotto_services_records() function.
+   */
+  public function testRecords() {
+    // Test with NULL.
+    $record = NULL;
+    $expected = array();
+    $result = lagotto_services_records($record, 0);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for error input (1).'));
+
+    // Test with empty object.
+    $record = new stdClass();
+    $expected = array();
+    $result = lagotto_services_records($record, 0);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for error input (2).'));
+
+    // Test with no data
+    $record = new stdClass();
+    $record->code = 0;
+    $record->data = NULL;
+    $expected = array();
+    $result = lagotto_services_records($record);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for error input (3).'));
+
+    // Test with no JSON.
+    $record->code = 200;
+    $record->data = '';
+    $expected = array();
+    $result = lagotto_services_records($record, 200);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for error input (4).'));
+
+    // Test with empty JSON array.
+    $record->code = 200;
+    $record->data = '[]';
+    $expected = array();
+    $result = lagotto_services_records($record, 200);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for error input (5).'));
+
+    // Test with a sensible approximation of a good result.
+    $record = new stdClass();
+    $record->request = 'GET /api/v5/articles?ids=10.7554/eLife.01086&info=summary HTTP/1.0';
+    $record->code = 200;
+    $record->headers = array(
+      'content-type' => 'application/json; charset=utf-8',
+      'status' => '200 OK'
+    );
+    $record->protocol = 'HTTP/1.1';
+    $record->status_message = 'OK';
+    $record->data = <<<__EOD__
+{
+  "total": 1,
+  "page": 1,
+  "error": null,
+  "data": [
+    {
+      "doi": "10.7554\/eLife.01086",
+      "title": "Essential yet limited",
+      "issued": {
+        "date-parts": [
+          [
+            2013,
+            11,
+            12
+          ]
+        ]
+      },
+      "pmid": "24220507",
+      "pmcid": "3820971"
+    }
+  ]
+}
+__EOD__;
+    $expected = array(
+      0 => array(
+        'doi' => '10.7554/eLife.01086',
+        'title' => 'Essential yet limited',
+        'issued' => array(
+          'date-parts' => array(0 => array(2013,11,12)),
+        ),
+        'pmid' => 24220507,
+        'pmcid' => 3820971,
+      ),
+    );
+    $result = lagotto_services_records($record, 200);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return expected array for good input (1).'));
+
+    // Test that the default success code is 200 (pass if previous passes).
+    $result = lagotto_services_records($record);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() default code should be 200 (2).'));
+
+    // Test that setting a non-default success code works.
+    $record->code = 201;
+    $result = lagotto_services_records($record, 201);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return expected array for good input (2).'));
+
+    // Another way to test a bad return.
+    $record->code = 404;
+    $record->data = <<<__EOD__
+{
+  "total": 1,
+  "page": 1,
+  "error": "Not found",
+  "data": null
+}
+__EOD__;
+    $expected = array();
+    $result = lagotto_services_records($record, 201);
+    $this->assertEqual($result, $expected,
+      t('lagotto_services_records() should return empty array for failed input.'));
+  }
 }
 
 /**
