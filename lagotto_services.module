@@ -25,16 +25,16 @@ define('LAGOTTO_SERVICES_PERM_REQUEST', 'make doi requests');
  * @return string
  *   The server base URL as configured by the user, or the default.
  *
- * @see lagotto_services_submit_add_doi
+ * @see lagotto_services_fetch_doi
+ * @see lagotto_services_submit_add_doi_enabled
  * @see lagotto_services_submit_remove_doi_enabled
  */
-function lagotto_services_submit_fetch_doi_enabled() {
+function lagotto_services_fetch_doi_enabled() {
   return user_access(LAGOTTO_SERVICES_PERM_REQUEST);
 }
 
-
 /**
- * Internal function to get the README file for use in module Help.
+ * Semi-private function to get the README file for use in module Help.
  *
  * It is intended this function can be used by submodules.
  *
@@ -46,6 +46,10 @@ function lagotto_services_submit_fetch_doi_enabled() {
  *
  * @return string
  *   The returned README text, processed using Markdown if available.
+ *
+ * This code was lifted directly from:
+ *   Provide help text in the Drupal UI
+ *   <https://www.drupal.org/node/161085#hook_help>
  */
 function lagotto_services_admin_get_readme($modulefile) {
   $path = dirname($modulefile) . '/README.md';
@@ -100,7 +104,7 @@ function lagotto_services_help($path, $arg) {
 function lagotto_services_permission() {
   return array(
     LAGOTTO_SERVICES_PERM_CONFIG => array(
-      'title' => t('Administer Lagotto Services'),
+      'title' => t('Administer Lagotto services'),
       'description' => t('Administer the Lagotto server configuration.'),
     ),
     LAGOTTO_SERVICES_PERM_REQUEST => array(
@@ -117,7 +121,7 @@ function lagotto_services_menu() {
   $items = array();
   $items['admin/config/services/lagotto_services'] = array(
     'title' => 'Lagotto Services',
-    'description' => 'Provides configuration options for Lagotto Services.',
+    'description' => 'Provides configuration options for Lagotto services.',
     'access arguments' => array(LAGOTTO_SERVICES_PERM_CONFIG),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('lagotto_services_admin_settings'),
@@ -175,47 +179,6 @@ function lagotto_services_service_url($version = LAGOTTO_SERVICES_API_FETCH) {
 function lagotto_services_service_key() {
   $key = variable_get('lagotto_services_apikey', LAGOTTO_SERVICES_DEFAULT_KEY);
   return $key;
-}
-
-/**
- * Return an article description array in a form suitable for submission.
- *
- * All parameters are validated using check_plain.
- *
- * @param string $doi
- *    The DOI of the article.
- * @param timestamp $date
- *    The publication date, compatible with date().
- * @param string $title
- *    The title of the article. Must be UTF-8 encoded.
- *
- * @return array
- *    An array containing an 'article' key containing the following keys:
- *    'doi' - The DOI of the article.
- *    'title' - The XSS-filtered title, with any html entities decoded.
- *    'year' - the publication year, e.g. 2011
- *    'month' - the publication month, e.g. 6
- *    'day' - the publication day, e.g. 15
- */
-function lagotto_services_make_article_desc($doi, $date, $title) {
-  $year = check_plain(date('Y', $date));
-  $mon = check_plain(date('n', $date));
-  $day = check_plain(date('j', $date));
-
-  $doi = check_plain($doi);
-
-  // Turn html entities into utf8 and strip html elements.
-  $title = html_entity_decode(filter_xss($title, array()), ENT_QUOTES, 'UTF-8');
-  $title = check_plain($title);
-
-  $descriptor = array(
-    'doi' => $doi,
-    'title' => $title,
-    'year' => (int) $year,
-    'month' => (int) $mon,
-    'day' => (int) $day,
-  );
-  return array('article' => $descriptor);
 }
 
 /**
@@ -425,7 +388,7 @@ function lagotto_services_doi_exists($doi, $options = array()) {
  *     'date' - use descending date,
  *     'event' - by descending event count
  *
- * @return array|NULL
+ * @return object|NULL
  *   The response object from drupal_http_request()
  *   NULL if access denied or there were no valid DOIs passed in.
  *   A constructed object with 'code' 500 if the service URL is invalid.
@@ -446,7 +409,7 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
 
   // Unlike the add & delete options, fetch doesn't change server state so
   // there's no need for a dediacated disable option.
-  $enabled = lagotto_services_submit_fetch_doi_enabled();
+  $enabled = lagotto_services_fetch_doi_enabled();
   if (!$enabled) {
     watchdog('lagotto_services',
       'DOI request failed: permission denied',

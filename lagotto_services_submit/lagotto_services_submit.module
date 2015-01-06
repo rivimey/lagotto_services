@@ -24,11 +24,11 @@ function lagotto_services_submit_help($path, $arg) {
 function lagotto_services_submit_permission() {
   return array(
     LAGOTTO_SERVICES_PERM_CREATE => array(
-      'title' => t('Create DOIs on the Lagotto Server'),
+      'title' => t('Create DOIs on the Lagotto server'),
       'description' => t('Add new DOIs to the Lagotto server (requires admin configuration).'),
     ),
     LAGOTTO_SERVICES_PERM_DELETE => array(
-      'title' => t('Delete DOIs on the Lagotto Server'),
+      'title' => t('Delete DOIs on the Lagotto server'),
       'description' => t('Delete DOIs on the Lagotto server (requires admin configuration).'),
     ),
   );
@@ -97,13 +97,59 @@ function lagotto_services_submit_service_creds() {
 }
 
 /**
+ * Return an article description array in a form suitable for submission.
+ *
+ * All parameters are validated using check_plain.
+ *
+ * @param string $doi
+ *    The DOI of the article.
+ * @param int $date
+ *    The publication date, compatible with date().
+ * @param string $title
+ *    The title of the article. Must be UTF-8 encoded.
+ *
+ * @return array|NULL
+ *    An array containing an 'article' key containing the following keys:
+ *    'doi' - The DOI of the article.
+ *    'title' - The XSS-filtered title, with any html entities decoded.
+ *    'year' - the publication year, e.g. 2011
+ *    'month' - the publication month, e.g. 6
+ *    'day' - the publication day, e.g. 15
+ *    or null if any of the inputs are null.
+ */
+function lagotto_services_submit_make_article_desc($doi, $date, $title) {
+  if (empty($doi) || empty($date) || empty($title)) {
+    return NULL;
+  }
+
+  $year = check_plain(date('Y', $date));
+  $mon = check_plain(date('n', $date));
+  $day = check_plain(date('j', $date));
+
+  $doi = check_plain($doi);
+
+  // Turn html entities into utf8 and strip html elements.
+  $title = html_entity_decode(filter_xss($title, array()), ENT_QUOTES, 'UTF-8');
+  $title = check_plain($title);
+
+  $descriptor = array(
+    'doi' => $doi,
+    'title' => $title,
+    'year' => (int) $year,
+    'month' => (int) $mon,
+    'day' => (int) $day,
+  );
+  return array('article' => $descriptor);
+}
+
+/**
  * Internal function to construct and send a PUT or POST request to the server.
  *
  * @param string $base_url
  *    The URL to use, to which the DOI will be added.
  * @param array $article_info
  *    The Lagotto options array defining this request. It must be in this form:
- *       array('article' => lagotto_services_make_article_desc(...) );
+ *       array('article' => lagotto_services_submit_make_article_desc(...) );
  *    Can be NULL if there is no body to send.
  * @param string $action
  *    One of 'POST' (Add), 'PUT' (Update) or 'DELETE' (Delete).
@@ -112,9 +158,16 @@ function lagotto_services_submit_service_creds() {
  *    The returned HTTP response object.
  */
 function lagotto_services_submit_modify_request($base_url, $action, $article_info) {
+  if (empty($article_info)) {
+    watchdog('lagotto_services_submit',
+      'DOI request failed: No article data',
+      WATCHDOG_ERROR);
+    return NULL;
+  }
+
   $auth64 = lagotto_services_submit_make_auth_token();
   if (empty($auth64)) {
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'DOI request failed: credentials not set',
       WATCHDOG_ERROR);
     return NULL;
@@ -122,8 +175,6 @@ function lagotto_services_submit_modify_request($base_url, $action, $article_inf
 
   // The successful API response differs for Add / Update. and the DOI should
   // be in the URL for v4 update and delete.
-  $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
-  $success = 200;
   switch ($action) {
     case 'POST':
       $success = 201;
@@ -132,9 +183,11 @@ function lagotto_services_submit_modify_request($base_url, $action, $article_inf
     case 'PUT':
     case 'GET':
     case 'DELETE':
+      $success = 200;
+      $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
       break;
     default:
-      watchdog('lagotto_services',
+      watchdog('lagotto_services_submit',
         'DOI request failed: invalid action requested.',
         WATCHDOG_ERROR);
       return NULL;
@@ -154,7 +207,7 @@ function lagotto_services_submit_modify_request($base_url, $action, $article_inf
   $response = drupal_http_request($url, $http_options);
 
   if (empty($response) || $response->code != $success) {
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'Remote DOI request to [%url] of [%req] failed code [%code] with message [%msg]',
       array(
         '%url' => $url,
@@ -204,7 +257,7 @@ function lagotto_services_submit_make_auth_token() {
 function lagotto_services_submit_remove_doi($doi, $options = array()) {
   $enabled = lagotto_services_submit_remove_doi_enabled();
   if (!$enabled) {
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'Delete DOI request failed: permission denied',
       WATCHDOG_WARNING);
     return NULL;
@@ -225,7 +278,7 @@ function lagotto_services_submit_remove_doi($doi, $options = array()) {
   if (!empty($doi_on_server)) {
     $article_info = array('article' => array('doi' => $doi));
     $response = lagotto_services_submit_modify_request($url, 'DELETE', $article_info);
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'DOI [%doi] deleted on Lagotto server. Status [%stat], [%err]',
       array(
         '%doi' => $doi,
@@ -236,7 +289,7 @@ function lagotto_services_submit_remove_doi($doi, $options = array()) {
   }
   else {
     if (!$options['quiet']) {
-      watchdog('lagotto_services',
+      watchdog('lagotto_services_submit',
         'DOI [%doi] does not exist on the Lagotto server. Deletion not performed.',
         array('%doi' => $doi),
         WATCHDOG_WARNING);
@@ -279,7 +332,7 @@ function lagotto_services_submit_remove_doi($doi, $options = array()) {
 function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()) {
   $enabled = lagotto_services_submit_add_doi_enabled();
   if (!$enabled) {
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'Add DOI request failed: permission denied', WATCHDOG_ERROR);
     return NULL;
   }
@@ -292,7 +345,7 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
   );
   $options = array_merge($default_options, $options);
 
-  $article_desc = lagotto_services_make_article_desc($doi, $date, $title);
+  $article_desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
   $url = lagotto_services_service_url($options['post_api_version']);
 
   // If the DOI is already on the server we need to check for update.
@@ -300,7 +353,7 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
   if (empty($doi_on_server)) {
     // Send the addition request.
     $response = lagotto_services_submit_modify_request($url, 'POST', $article_desc);
-    watchdog('lagotto_services',
+    watchdog('lagotto_services_submit',
       'DOI [%doi] added on Lagotto server. Status [%stat], [%err]',
       array(
         '%doi' => $doi,
@@ -318,7 +371,7 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
 
     if (!($same_date || $same_title)) {
       $response = lagotto_services_submit_modify_request($url, 'PUT', $article_desc);
-      watchdog('lagotto_services',
+      watchdog('lagotto_services_submit',
         'DOI [%doi] updated on Lagotto server. Status [%stat], [%err]',
         array(
           '%doi' => $doi,
@@ -336,7 +389,7 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
   }
   else {
     if (!$options['quiet']) {
-      watchdog('lagotto_services',
+      watchdog('lagotto_services_submit',
         'DOI [%doi] already exists on the Lagotto server',
         array(
           '%doi' => $doi,
