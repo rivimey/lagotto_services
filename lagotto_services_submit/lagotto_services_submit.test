@@ -58,18 +58,8 @@ class LagottoServicesSubmitUnitTestCase extends DrupalUnitTestCase {
     $doi = NULL;
     $date = 0;
     $title = NULL;
-    $expected = array(
-      'article' => array(
-        'doi' => $doi,
-        'title' => $title,
-        'year' => 2013,
-        'month' => 11,
-        'day' => 12,
-      ),
-    );
     $desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
-    print_r($desc);
-    $this->assertEqual($desc, $expected, t('Make Desc: descriptor should match (simple).'));
+    $this->assertNull($desc, t('Make Desc: descriptor should be null.'));
 
     $doi = '10.7554/eLife.01086';
     $date = strtotime('2013-11-12');
@@ -101,7 +91,6 @@ class LagottoServicesSubmitUnitTestCase extends DrupalUnitTestCase {
     $desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
     $this->assertEqual($desc, $expected, t('Make Desc: descriptor should match (xss).'));
   }
-
 }
 
 /**
@@ -274,5 +263,24 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     $response = lagotto_services_submit_remove_doi($article_doi, array('quiet' => FALSE));
     $this->assertNotNull($response, t('Delete DOI: Expect a response for the Lagotto server.'));
     $this->assertEqual($response->code, 200, t('Delete DOI: Server Response should be 200 for DOI delete.'));
+  }
+
+  /**
+   * Test the submit-modify-request code.
+   */
+  public function testModifyRequest() {
+
+    // Test invalid action fails.
+    $service_url = lagotto_services_service_url();
+    $article_desc = array();
+    $response = lagotto_services_submit_modify_request($service_url, 'FLY', $article_desc);
+    $this->assertNull($response, t('Submit modify: Expected Null for invalid action.'));
+
+    // Test no descriptor array fails.
+    $service_url = lagotto_services_service_url();
+    print($service_url);
+    $article_desc = NULL;
+    $response = lagotto_services_submit_modify_request($service_url, 'GET', $article_desc);
+    $this->assertNull($response, t('Submit modify: Expected Null for empty desc.'));
   }
 }
