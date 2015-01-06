@@ -51,6 +51,57 @@ class LagottoServicesSubmitUnitTestCase extends DrupalUnitTestCase {
     $this->assertEqual($service_url, $service_server . '/api/v5/articles', t('When a valid API version is not provided /api/v5/articles should be returned.'));
   }
 
+  /**
+   * Test the make_article_desc function.
+   */
+  public function testMakeDesc() {
+    $doi = NULL;
+    $date = 0;
+    $title = NULL;
+    $expected = array(
+      'article' => array(
+        'doi' => $doi,
+        'title' => $title,
+        'year' => 2013,
+        'month' => 11,
+        'day' => 12,
+      ),
+    );
+    $desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
+    print_r($desc);
+    $this->assertEqual($desc, $expected, t('Make Desc: descriptor should match (simple).'));
+
+    $doi = '10.7554/eLife.01086';
+    $date = strtotime('2013-11-12');
+    $title = 'A Test';
+    $expected = array(
+      'article' => array(
+        'doi' => $doi,
+        'title' => $title,
+        'year' => 2013,
+        'month' => 11,
+        'day' => 12,
+      ),
+    );
+    $desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
+    $this->assertEqual($desc, $expected, t('Make Desc: descriptor should match (simple).'));
+
+    $doi = '10.7554/éLife.åß†';
+    $date = strtotime('2013-11-12');
+    $title = 'A T&eacute;st with&#x20;<b>added</b> <script> and <meta> tags.';
+    $expected = array(
+      'article' => array(
+        'doi' => $doi,
+        'title' => 'A Tést with added  and  tags.',
+        'year' => 2013,
+        'month' => 11,
+        'day' => 12,
+      ),
+    );
+    $desc = lagotto_services_submit_make_article_desc($doi, $date, $title);
+    $this->assertEqual($desc, $expected, t('Make Desc: descriptor should match (xss).'));
+  }
+
 }
 
 /**
@@ -133,12 +184,14 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     $article_title = 'Test Title';
     $response = lagotto_services_submit_remove_doi($article_doi, array('quiet' => TRUE));
     $this->assertNotNull($response, t('Remove DOI: Expect a response from the Lagotto server.'));
-    $this->assertEqual($response->code, 204, t('Remove DOI: Response from server should be 200 for DOI removal.'));
+    // While we do expect a response to this, this is a clean-up so we don't
+    // care much what the response was.
 
     // Test adding a new record.
     $response = lagotto_services_submit_add_doi($article_doi, $article_date, $article_title);
     $this->assertNotNull($response, t('Add DOI: Expect a response from the Lagotto server.'));
-    $this->assertEqual($response->code, 201, t('Add DOI: Response from server should be 201 for DOI creation.'));
+    $this->assertEqual($response->code, 201,
+      t('Add DOI: Response from server should be 201 for DOI creation.'));
 
     // Check that the stored record matches what we expect.
     $record = lagotto_services_fetch_doi($article_doi, array(
@@ -146,7 +199,8 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
       'quiet' => FALSE
     ));
     $this->assertNotNull($record, t('Fetch DOI: Expect a response from the Lagotto server.'));
-    $this->assertEqual($record->code, 200, t('Fetch DOI: Response from server should be 200 for DOI lookup.'));
+    $this->assertEqual($record->code, 200,
+      t('Fetch DOI: Response from server should be 200 for DOI lookup.'));
 
     $record_json = json_decode($record->data, TRUE);
     $this->assertNull($record_json['error'],
@@ -155,8 +209,9 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     $record_doi = $record_json['data'][0];
     $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
     $d2 = date('Y-m-d', $article_date);
-    $this->assertEqual($record_doi['title'], $article_title, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
-      array('@t1' => $record_doi['title'], '@t2' => $article_title)));
+    $this->assertEqual($record_doi['title'], $article_title,
+      t('Title returned [@t1] should be same as on submitted on DOI update [@t2].',
+        array('@t1' => $record_doi['title'], '@t2' => $article_title)));
     $this->assertEqual($d1, $d2,
       t('Publication date on the Lagotto server @d1 should match that submitted on DOI update @d2.',
         array('@d1' => $d1, '@d2' => $d2))
@@ -184,10 +239,12 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     $record_doi = $record_json['data'][0];
     $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
     $d2 = date('Y-m-d', $article_date_new);
-    $this->assertEqual($record_doi['title'], $article_title_new, t('Title returned [@t1]should be same as on submitted on DOI update [@t2].',
-      array('@t1' => $record_doi['title'], '@t2' => $article_title_new)));
-    $this->assertEqual($d1, $d2, t('Publication date on the Lagotto server @d1 should be the same as that submitted on DOI update @d2.',
-      array('@d1' => $d1, '@d2' => $d2)));
+    $this->assertEqual($record_doi['title'], $article_title_new,
+      t('Title returned [@t1] should be same as on submitted on DOI update [@t2].',
+        array('@t1' => $record_doi['title'], '@t2' => $article_title_new)));
+    $this->assertEqual($d1, $d2,
+      t('Publication date on the Lagotto server @d1 should be the same as that submitted on DOI update @d2.',
+        array('@d1' => $d1, '@d2' => $d2)));
 
     // Test updating an existing record with the same info.
     $article_date_new = strtotime('2014-12-26');
