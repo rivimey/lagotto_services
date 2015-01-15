@@ -189,14 +189,16 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
   public function testRecords() {
     // Test with NULL.
     $record = NULL;
-    $expected = array();
+    $expected = array(
+      'error' => 2000,
+      'message' => 'API Request returned no data',
+    );
     $result = lagotto_services_records($record, 0);
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (1).'));
 
     // Test with empty object.
     $record = new stdClass();
-    $expected = array();
     $result = lagotto_services_records($record, 0);
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (2).'));
@@ -205,7 +207,6 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     $record = new stdClass();
     $record->code = 0;
     $record->data = NULL;
-    $expected = array();
     $result = lagotto_services_records($record);
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (3).'));
@@ -213,7 +214,6 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     // Test with no JSON.
     $record->code = 200;
     $record->data = '';
-    $expected = array();
     $result = lagotto_services_records($record, 200);
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (4).'));
@@ -221,8 +221,11 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
     // Test with empty JSON array.
     $record->code = 200;
     $record->data = '[]';
-    $expected = array();
     $result = lagotto_services_records($record, 200);
+    $expected = array(
+      'error' => 3000,
+      'message' => 'API Request returned empty result',
+    );
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for error input (5).'));
 
@@ -261,14 +264,18 @@ class LagottoServicesUnitTestCase extends DrupalUnitTestCase {
 }
 __EOD__;
     $expected = array(
-      0 => array(
-        'doi' => '10.7554/eLife.01086',
-        'title' => 'Essential yet limited',
-        'issued' => array(
-          'date-parts' => array(0 => array(2013, 11, 12)),
+      'error' => 0,
+      'message' => 'OK',
+      'result' => array(
+        0 => array(
+          'doi' => '10.7554/eLife.01086',
+          'title' => 'Essential yet limited',
+          'issued' => array(
+            'date-parts' => array(0 => array(2013, 11, 12)),
+          ),
+          'pmid' => 24220507,
+          'pmcid' => 3820971,
         ),
-        'pmid' => 24220507,
-        'pmcid' => 3820971,
       ),
     );
     $result = lagotto_services_records($record, 200);
@@ -296,7 +303,10 @@ __EOD__;
   "data": null
 }
 __EOD__;
-    $expected = array();
+    $expected = array(
+      'error' => 1404,
+      'message' => 'HTTP request was not successful',
+    );
     $result = lagotto_services_records($record, 201);
     $this->assertEqual($result, $expected,
       t('lagotto_services_records() should return empty array for failed input.'));
@@ -424,25 +434,22 @@ class LagottoServicesWebTestCase extends DrupalWebTestCase {
       )
     );
 
-    $record = lagotto_services_fetch_doi($article_doi,
+    $result = lagotto_services_fetch_doi($article_doi,
       array(
         'include_detail' => TRUE,
         'quiet' => TRUE,
       ));
-    $this->assertNotNull($record,
+    $this->assertNotNull($result,
       t('Fetch DOI: Expect a response from the Lagotto server.'));
-    $this->assertEqual($record->code, 200,
+    $this->assertEqual($result->code, 200,
       t('Fetch DOI: Status code should be 200 from the Lagotto server. Got [@resp]',
-        array('@resp' => $record->code)));
-    $record_doi = lagotto_services_records($record, 0);
-    $this->assertNotNull($record,
-      t('records() returned null for fetch.'));
-    $record_doi = reset($record_doi);
+        array('@resp' => $result->code)));
+    $record_doi = lagotto_services_record($result, 0);
+    $this->assertNotNull($record_doi,
+      t('lagotto_services_record() returned null for fetch.'));
+    $this->assertFalse(!empty($record_doi['error']) && ($record_doi['error'] > 0),
+      t('lagotto_services_record() error set in result.'));
 
-    $record_json = json_decode($record->data, TRUE);
-    $this->assertNull($record_json['error'],
-      t('JSON Decode Fetch: fetch doi returned error state: @resp',
-        array('@resp' => $record_json['error'])));
     $this->assertEqual(
       $record_doi['doi'],
       $article_doi,

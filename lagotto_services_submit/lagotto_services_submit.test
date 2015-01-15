@@ -165,11 +165,19 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
    * Check for DOI POST/PUT/DELETE api methods.
    */
   public function testPostDoi() {
+    $this->assertTrue(module_exists('lagotto_services_submit'), t('Submission sub-module not enabled.'));
+
     $this->drupalLogin($this->adminUser);
 
+    // Need a date for articles in the (recent to test-run time) past.
+    $now_obj = new DateTime('NOW');
+    $now_obj->modify('-1 month')->setTime(0, 0, 0);
+    $article_date = $now_obj->getTimestamp();
+    $article_date_new = $now_obj->modify('1 day')->getTimestamp();
+
     // This should be an unused DOI.
-    $article_doi = '10.7554/eLife.99009';
-    $article_date = strtotime('2014-12-25');
+    $article_doi = '10.7554/eLife.99109';
+
     $article_title = 'Test Title';
     $response = lagotto_services_submit_remove_doi($article_doi, array('quiet' => TRUE));
     $this->assertNotNull($response, t('Remove DOI: Expect a response from the Lagotto server.'));
@@ -180,22 +188,25 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     $response = lagotto_services_submit_add_doi($article_doi, $article_date, $article_title);
     $this->assertNotNull($response, t('Add DOI: Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 201,
-      t('Add DOI: Response from server should be 201 for DOI creation.'));
+      t('Add DOI: Response from server should be 201 for DOI creation. Got [@resp]',
+        array('@resp' => $response->code)));
 
     // Check that the stored record matches what we expect.
-    $record = lagotto_services_fetch_doi($article_doi, array(
+    $result = lagotto_services_fetch_doi($article_doi, array(
       'include_detail' => TRUE,
       'quiet' => FALSE
     ));
-    $this->assertNotNull($record, t('Fetch DOI: Expect a response from the Lagotto server.'));
-    $this->assertEqual($record->code, 200,
-      t('Fetch DOI: Response from server should be 200 for DOI lookup.'));
+    $this->assertNotNull($result,
+      t('Fetch DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($result->code, 200,
+      t('Fetch DOI: Status code should be 200 from the Lagotto server. Got [@resp]',
+        array('@resp' => $result->code)));
+    $record_doi = lagotto_services_record($result, 0);
+    $this->assertNotNull($record_doi,
+      t('lagotto_services_record() returned null for fetch.'));
+    $this->assertFalse(!empty($record_doi['error']) && ($record_doi['error'] > 0),
+      t('lagotto_services_record() error set in result.'));
 
-    $record_json = json_decode($record->data, TRUE);
-    $this->assertNull($record_json['error'],
-      t('JSON Decode Fetch: fetch doi returned error state: @resp',
-        array('@resp' => $record_json['error'])));
-    $record_doi = $record_json['data'][0];
     $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
     $d2 = date('Y-m-d', $article_date);
     $this->assertEqual($record_doi['title'], $article_title,
@@ -207,25 +218,32 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     );
 
     // Test updating an existing record.
-    $article_date_new = strtotime('2014-12-26');
-    $article_title_new = 'Test Title new';
-    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
-      'autoupdate' => TRUE,
-      'quiet' => FALSE
-    ));
+    $article_title_new = 'New Test Title';
+    $response = lagotto_services_submit_add_doi(
+      $article_doi, $article_date_new, $article_title_new,
+      array(
+        'autoupdate' => TRUE,
+        'quiet' => FALSE
+      ));
     $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 200, t('Update DOI: Response from server should be 200 for DOI update.'));
 
     // Check that the stored record matches what we expect.
-    $record = lagotto_services_fetch_doi($article_doi, array(
+    $result = lagotto_services_fetch_doi($article_doi, array(
       'include_detail' => TRUE,
       'quiet' => FALSE
     ));
-    $record_json = json_decode($record->data, TRUE);
-    $this->assertNull($record_json['error'],
-      t('JSON Decode Fetch: fetch doi returned error state: @resp',
-        array('@resp' => $record_json['error'])));
-    $record_doi = $record_json['data'][0];
+    $this->assertNotNull($result,
+      t('Fetch DOI: Expect a response from the Lagotto server.'));
+    $this->assertEqual($result->code, 200,
+      t('Fetch DOI: Status code should be 200 from the Lagotto server. Got [@resp]',
+        array('@resp' => $result->code)));
+    $record_doi = lagotto_services_record($result, 0);
+    $this->assertNotNull($record_doi,
+      t('lagotto_services_record() returned null for fetch.'));
+    $this->assertFalse(!empty($record_doi['error']) && ($record_doi['error'] > 0),
+      t('lagotto_services_record() error set in result.'));
+
     $d1 = date('Y-m-d', lagotto_services_issue_date($record_doi));
     $d2 = date('Y-m-d', $article_date_new);
     $this->assertEqual($record_doi['title'], $article_title_new,
@@ -236,24 +254,26 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
         array('@d1' => $d1, '@d2' => $d2)));
 
     // Test updating an existing record with the same info.
-    $article_date_new = strtotime('2014-12-26');
     $article_title_new = 'Test Title new';
-    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
-      'autoupdate' => TRUE,
-      'quiet' => FALSE
-    ));
+    $response = lagotto_services_submit_add_doi(
+      $article_doi, $article_date_new, $article_title_new,
+      array(
+        'autoupdate' => TRUE,
+        'quiet' => FALSE
+      ));
     $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 202,
       t('Update DOI: Response should be 202 for duplicate DOI update, got @code.',
       array('@code' => $response->code)));
 
     // Test updating an existing record, no autoupdate.
-    $article_date_new = strtotime('2014-12-26');
     $article_title_new = 'Test Title new';
-    $response = lagotto_services_submit_add_doi($article_doi, $article_date_new, $article_title_new, array(
-      'autoupdate' => FALSE,
-      'quiet' => TRUE,
-    ));
+    $response = lagotto_services_submit_add_doi(
+      $article_doi, $article_date_new, $article_title_new,
+      array(
+        'autoupdate' => FALSE,
+        'quiet' => TRUE,
+      ));
     $this->assertNotNull($response, t('Update DOI: Expect a response from the Lagotto server.'));
     $this->assertEqual($response->code, 200,
       t('Update DOI: Response from server should be 200 for DOI update, got @code.',
@@ -273,14 +293,17 @@ class LagottoServicesSubmitWebTestCase extends DrupalWebTestCase {
     // Test invalid action fails.
     $service_url = lagotto_services_service_url();
     $article_desc = array();
-    $response = lagotto_services_submit_modify_request($service_url, 'FLY', $article_desc);
+    $response = lagotto_services_submit_modify_request(
+      $service_url, 'FLY', $article_desc
+    );
     $this->assertNull($response, t('Submit modify: Expected Null for invalid action.'));
 
     // Test no descriptor array fails.
     $service_url = lagotto_services_service_url();
-    print($service_url);
     $article_desc = NULL;
-    $response = lagotto_services_submit_modify_request($service_url, 'GET', $article_desc);
+    $response = lagotto_services_submit_modify_request(
+      $service_url, 'GET', $article_desc, TRUE
+    );
     $this->assertNull($response, t('Submit modify: Expected Null for empty desc.'));
   }
 }

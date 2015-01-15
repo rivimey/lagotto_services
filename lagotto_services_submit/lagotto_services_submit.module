@@ -157,7 +157,7 @@ function lagotto_services_submit_make_article_desc($doi, $date, $title) {
  * @return object
  *    The returned HTTP response object.
  */
-function lagotto_services_submit_modify_request($base_url, $action, $article_info) {
+function lagotto_services_submit_modify_request($base_url, $action, $article_info, $quiet = FALSE) {
   if (empty($article_info)) {
     watchdog('lagotto_services_submit',
       'DOI request failed: No article data',
@@ -179,13 +179,22 @@ function lagotto_services_submit_modify_request($base_url, $action, $article_inf
     case 'POST':
       $success = 201;
       $url = $base_url;
+      $body = json_encode($article_info);
       break;
+
     case 'PUT':
+      $success = 200;
+      $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
+      $body = json_encode($article_info);
+      break;
+
     case 'GET':
     case 'DELETE':
+      $body = NULL;
       $success = 200;
       $url = $base_url . '/info:doi/' . $article_info['article']['doi'];
       break;
+
     default:
       watchdog('lagotto_services_submit',
         'DOI request failed: invalid action requested.',
@@ -202,14 +211,14 @@ function lagotto_services_submit_modify_request($base_url, $action, $article_inf
     'method' => $action,
   );
 
-  $body = json_encode($article_info);
   $http_options['data'] = $body;
   $response = drupal_http_request($url, $http_options);
 
-  if (empty($response) || $response->code != $success) {
+  if (!$quiet && (empty($response) || $response->code != $success)) {
     watchdog('lagotto_services_submit',
-      'Remote DOI request to [%url] of [%req] failed code [%code] with message [%msg]',
+      'DOI [%act] request to [%url] of [%req] failed code [%code] with message [%msg]',
       array(
+        '%act' => $action,
         '%url' => $url,
         '%req' => $body,
         '%code' => $response->code,
@@ -277,7 +286,9 @@ function lagotto_services_submit_remove_doi($doi, $options = array()) {
   $doi_on_server = lagotto_services_doi_exists($doi, $options);
   if (!empty($doi_on_server)) {
     $article_info = array('article' => array('doi' => $doi));
-    $response = lagotto_services_submit_modify_request($url, 'DELETE', $article_info);
+    $response = lagotto_services_submit_modify_request(
+      $url, 'DELETE', $article_info, $options['quiet']
+    );
     watchdog('lagotto_services_submit',
       'DOI [%doi] deleted on Lagotto server. Status [%stat], [%err]',
       array(
@@ -350,9 +361,11 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
 
   // If the DOI is already on the server we need to check for update.
   $doi_on_server = lagotto_services_doi_exists($doi, $options);
-  if (empty($doi_on_server)) {
+  if ($doi_on_server == NULL) {
     // Send the addition request.
-    $response = lagotto_services_submit_modify_request($url, 'POST', $article_desc);
+    $response = lagotto_services_submit_modify_request(
+      $url, 'POST', $article_desc, $options['quiet']
+    );
     watchdog('lagotto_services_submit',
       'DOI [%doi] added on Lagotto server. Status [%stat], [%err]',
       array(
@@ -370,7 +383,9 @@ function lagotto_services_submit_add_doi($doi, $date, $title, $options = array()
     $same_title = ($doi_on_server['title'] == $title);
 
     if (!($same_date || $same_title)) {
-      $response = lagotto_services_submit_modify_request($url, 'PUT', $article_desc);
+      $response = lagotto_services_submit_modify_request(
+        $url, 'PUT', $article_desc, $options['quiet']
+      );
       watchdog('lagotto_services_submit',
         'DOI [%doi] updated on Lagotto server. Status [%stat], [%err]',
         array(

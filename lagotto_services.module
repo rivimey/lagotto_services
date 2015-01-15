@@ -361,12 +361,12 @@ function lagotto_services_doi_exists($doi, $options = array()) {
   $options = array_merge($options, $override_options);
 
   $lookup = lagotto_services_fetch_doi($doi, $options);
-  $record = lagotto_services_records($lookup);
-  if (empty($record)) {
+  $record = lagotto_services_record($lookup, 0);
+  if (!empty($record['error'])) {
     return NULL;
   }
   else {
-    return $record[0];
+    return $record;
   }
 }
 
@@ -470,17 +470,77 @@ function lagotto_services_fetch_doi($doi_list, $options = array()) {
  *   return codes, or to e.g. 201 or 202 for alternate codes.
  *
  * @return array
- *   The returned data as an indexed array.
+ *   The returned data as an indexed array of arrays.
+ *     'result' is the returned 'data' record from the server.
+ *     'error' values:
+ *       0 = success
+ *       1000..1000+JSON_ERROR_UNSUPPORTED_TYPE = json decode error
+ *       2000 = No result from HTTP request, e.g. timeout
+ *       3000 = HTTP request returned empty JSON.
+ *     'message' is a string describing the error.
  */
 function lagotto_services_records($reply, $success = 200) {
+  // reset json_last_error so caller can rely on it.
   $records = array();
   if (!empty($reply) && !empty($reply->data)) {
     if (0 == $success || $reply->code == $success) {
       $json = json_decode($reply->data, TRUE);
-      if (!empty($json) && !empty($json['data'])) {
-        $records = $json['data'];
+      $err = json_last_error();
+      if ($err === JSON_ERROR_NONE) {
+        if (!empty($json) && !empty($json['data'])) {
+          $records['result'] = $json['data'];
+          $records['error'] = 0;
+          $records['message'] = t('OK');
+        }
+        else {
+          $records['error'] = 3000;
+          $records['message'] = t('API Request returned empty result');
+        }
+      }
+      else {
+        $records['error'] = json_last_error();
+        $records['message'] = json_last_error_msg();
       }
     }
+    else {
+      $records['error'] = 1000 + $reply->code;
+      $records['message'] = t('HTTP request was not successful');
+    }
+  }
+  else {
+    $records['error'] = 2000;
+    $records['message'] = t('API Request returned no data');
+  }
+  return $records;
+}
+
+/**
+ * API: Return a doi record from a server response.
+ *
+ * Use this to easily access the server response data from the return value
+ * of fetch or add doi calls. You either get an empty array or an array of
+ * the returned articles.
+ *
+ * @param object $reply
+ *   The response object as returned from lagotto_services_fetch_doi() et al.
+ * @param int $recno
+ *   The record number of the required record.
+ * @param int $success
+ *   The expected successful return code; set to 0 to disable checking for
+ *   return codes, or to e.g. 201 or 202 for alternate codes.
+ *
+ * @return array|null
+ *   The returned record as an array, if all well, else an array describing
+ *   the error. Use:
+ *     (!empty($record['error']) && ($record['error'] > 0))
+ *   as the error condition.
+ *
+ * @see lagotto_services_records()
+ */
+function lagotto_services_record($reply, $recno = 0, $success = 200) {
+  $records = lagotto_services_records($reply, $success);
+  if (!empty($records['result'])) {
+    return $records['result'][$recno];
   }
   return $records;
 }
